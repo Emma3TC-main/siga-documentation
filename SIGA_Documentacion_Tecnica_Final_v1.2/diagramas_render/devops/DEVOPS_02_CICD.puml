@@ -1,0 +1,196 @@
+@startuml DEVOPS_02_Pipeline_CICD
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/devops/DEVOPS_02_CICD.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+
+' ============================================================
+' CONFIGURACIÓN VISUAL
+' La lógica y el contenido se mantienen según la fuente de verdad.
+' ============================================================
+
+!theme plain
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+skinparam defaultFontColor #1E293B
+skinparam dpi 300
+skinparam padding 8
+
+skinparam BackgroundColor #F8FAFC
+
+' ============================================================
+' FLECHAS Y TRANSICIONES
+' ============================================================
+
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' INICIO Y FIN
+' ============================================================
+
+skinparam ActivityStartColor #0EA5E9
+skinparam ActivityEndColor #64748B
+skinparam ActivityBorderThickness 1.5
+
+' ============================================================
+' DECISIONES
+' ============================================================
+
+skinparam ActivityDiamondBackgroundColor #FEF3C7
+skinparam ActivityDiamondBorderColor #D97706
+skinparam ActivityDiamondFontColor #92400E
+skinparam ActivityDiamondFontStyle bold
+
+' ============================================================
+' NOTAS
+' ============================================================
+
+skinparam NoteBackgroundColor #EFF6FF
+skinparam NoteBorderColor #3B82F6
+skinparam NoteFontColor #1E3A8A
+skinparam NoteRoundCorner 10
+
+' ============================================================
+' ESTILOS SEMÁNTICOS
+' ============================================================
+
+<style>
+activityDiagram {
+
+  LineColor #334155
+  FontColor #0F172A
+
+  .git {
+    BackgroundColor #F5F3FF
+    LineColor #7C3AED
+    FontColor #5B21B6
+  }
+
+  .setup {
+    BackgroundColor #F1F5F9
+    LineColor #64748B
+    FontColor #334155
+  }
+
+  .build {
+    BackgroundColor #EFF6FF
+    LineColor #2563EB
+    FontColor #1E40AF
+  }
+
+  .ci {
+    BackgroundColor #ECFEFF
+    LineColor #0891B2
+    FontColor #155E75
+  }
+
+  .security {
+    BackgroundColor #FEF3C7
+    LineColor #D97706
+    FontColor #92400E
+  }
+
+  .release {
+    BackgroundColor #EEF2FF
+    LineColor #4F46E5
+    FontColor #3730A3
+  }
+
+  .deployDev {
+    BackgroundColor #ECFDF5
+    LineColor #059669
+    FontColor #065F46
+  }
+
+  .deployProd {
+    BackgroundColor #F0FDF4
+    LineColor #16A34A
+    FontColor #14532D
+  }
+}
+</style>
+
+' ============================================================
+' TÍTULO
+' ============================================================
+
+title
+<b><size:16><color:#1E293B>DEVOPS-02 — Pipeline CI/CD GitHub Actions</color></size></b>
+<size:11><color:#64748B>Automatización de pruebas, análisis de seguridad y despliegues continuos</color></size>
+end title
+
+' ============================================================
+' FLUJO CANÓNICO
+' ============================================================
+
+start
+
+:<color:#7C3AED><&git-pull-request></color> Push / Pull Request\nDisparador de workflow; <<git>>
+
+:<color:#64748B><&wrench></color> Checkout + setup Java/Node\nInicialización de entorno; <<setup>>
+
+:<color:#64748B><&loop-circular></color> Restore cache\nOptimización de dependencias; <<setup>>
+
+:<color:#2563EB><&code></color> Compile / lint\nVerificación estática y compilación; <<build>>
+
+:<color:#0891B2><&check></color> Unit tests\nPruebas unitarias automatizadas; <<ci>>
+
+:<color:#0891B2><&layers></color> Integration tests aplicables\nPruebas de integración; <<ci>>
+
+:<color:#0891B2><&bar-chart></color> JaCoCo/Vitest coverage\nMétrica de cobertura de código; <<ci>>
+
+:<color:#D97706><&shield></color> CodeQL + Gitleaks + dependency scan\nAnálisis SAST y secretos; <<security>>
+
+:<color:#2563EB><&dashboard></color> SonarCloud\nCalidad y deuda técnica; <<build>>
+
+if (<b>¿PR?</b>) then (<color:#2563EB><b>sí</b></color>)
+
+  :<color:#2563EB><&file></color> Publicar artefactos de prueba\nReportes y logs temporales; <<build>>
+
+  stop
+
+else (<color:#4F46E5><b>merge/release</b></color>)
+
+  :<color:#4F46E5><&box></color> Docker build\nEmpaquetado de contenedor; <<release>>
+
+  :<color:#D97706><&shield></color> Trivy image scan\nAnálisis de vulnerabilidades en contenedor; <<security>>
+
+  :<color:#4F46E5><&cloud-upload></color> Push Artifact Registry con tag inmutable\nPublicación de imagen versionada; <<release>>
+
+  if (<b>¿develop?</b>) then (<color:#059669><b>sí</b></color>)
+
+    :<color:#059669><&cog></color> Deploy DEV controlado\nDespliegue en entorno de desarrollo; <<deployDev>>
+
+  else (<color:#16A34A><b>main/tag</b></color>)
+
+    :<color:#16A34A><&circle-check></color> Deploy QA/PROD según aprobación\nDespliegue productivo validado; <<deployProd>>
+
+  endif
+
+endif
+
+stop
+
+' ============================================================
+' NOTA ARQUITECTÓNICA / OPERATIVA
+' ============================================================
+
+note right
+  <b>Consideraciones de Ejecución:</b>
+
+  PIT, Newman, ZAP y otras pruebas costosas son
+  selectivas/planificadas para no bloquear el sprint
+  sin necesidad.
+end note
+
+@enduml

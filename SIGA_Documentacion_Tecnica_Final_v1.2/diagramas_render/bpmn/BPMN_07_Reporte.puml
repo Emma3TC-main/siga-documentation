@@ -1,0 +1,38 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/bpmn/BPMN_07_Reporte.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #4B5563
+skinparam BorderColor #374151
+skinparam BackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF7D6
+skinparam NoteBorderColor #A16207
+
+title BPMN-07 — Generación de reporte / analítica
+|Usuario|
+start
+:Elegir reporte, filtros y formato;
+|Reporting Service|
+:Validar permiso;
+:Consultar read model / proyección;
+:Generar PDF/XLSX/CSV;
+if (Reporte oficial/auditable?) then (sí)
+ |Object Storage|
+ :Persistir archivo;
+ |Reporting Service|
+ :Guardar metadata, filtros, solicitante y hash;
+else (no)
+ :Preparar descarga temporal;
+endif
+|Usuario|
+:Descargar/consultar;
+stop
+@enduml

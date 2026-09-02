@@ -1,0 +1,164 @@
+@startuml DEVOPS_06_Backup_Restore_Test
+
+' ============================================================
+' CONFIGURACIÓN VISUAL
+' La lógica y el contenido se mantienen según la fuente de verdad.
+' ============================================================
+
+!theme plain
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+skinparam defaultFontColor #1E293B
+skinparam dpi 300
+skinparam padding 8
+
+skinparam BackgroundColor #F8FAFC
+
+' ============================================================
+' FLECHAS Y TRANSICIONES
+' ============================================================
+
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' INICIO Y FIN
+' ============================================================
+
+skinparam ActivityStartColor #0EA5E9
+skinparam ActivityEndColor #64748B
+skinparam ActivityBorderThickness 1.5
+
+' ============================================================
+' DECISIONES
+' ============================================================
+
+skinparam ActivityDiamondBackgroundColor #FEF3C7
+skinparam ActivityDiamondBorderColor #D97706
+skinparam ActivityDiamondFontColor #92400E
+skinparam ActivityDiamondFontStyle bold
+
+' ============================================================
+' ESTILOS SEMÁNTICOS
+' ============================================================
+
+<style>
+
+activityDiagram {
+
+    LineColor #334155
+    FontColor #0F172A
+
+    .backup {
+        BackgroundColor #EFF6FF
+        LineColor #2563EB
+        FontColor #1E40AF
+    }
+
+    .cloud {
+        BackgroundColor #EEF2FF
+        LineColor #4F46E5
+        FontColor #3730A3
+    }
+
+    .docker {
+        BackgroundColor #F5F3FF
+        LineColor #7C3AED
+        FontColor #5B21B6
+    }
+
+    .security {
+        BackgroundColor #FEF3C7
+        LineColor #D97706
+        FontColor #92400E
+    }
+
+    .validation {
+        BackgroundColor #ECFEFF
+        LineColor #0891B2
+        FontColor #155E75
+    }
+
+    .success {
+        BackgroundColor #ECFDF5
+        LineColor #059669
+        FontColor #065F46
+    }
+
+    .error {
+        BackgroundColor #FEF2F2
+        LineColor #DC2626
+        FontColor #991B1B
+    }
+}
+
+</style>
+
+' ============================================================
+' TÍTULO
+' ============================================================
+
+title
+<b><size:16><color:#1E293B>DEVOPS-06 — Backup y Restore Test</color></size></b>
+<size:11><color:#64748B>Respaldo, restauración y validación de RPO/RTO</color></size>
+end title
+
+' ============================================================
+' FLUJO — FUENTE DE VERDAD
+' ============================================================
+
+start
+
+:<color:#2563EB><&calendar></color> Job diario; <<backup>>
+
+if (<b>Cloud SQL?</b>) then (<color:#4F46E5><b>sí</b></color>)
+
+    :<color:#4F46E5><&database></color> Backup automatizado + PITR si configurado; <<cloud>>
+
+else (<color:#7C3AED><b>Docker PostgreSQL</b></color>)
+
+    :<color:#7C3AED><&database></color> pg_dump consistente; <<docker>>
+
+    :<color:#D97706><&lock></color> cifrar/proteger archivo; <<security>>
+
+    :<color:#4F46E5><&cloud-upload></color> subir a bucket backup GCS; <<cloud>>
+
+endif
+
+:<color:#2563EB><&clipboard></color> Registrar resultado/alerta; <<backup>>
+
+:<color:#4F46E5><&clock></color> Retención diaria 30 días + copia mensual según política; <<cloud>>
+
+:<color:#0891B2><&refresh></color> ... restore test periódico ...; <<validation>>
+
+:<color:#2563EB><&file></color> Seleccionar copia válida; <<backup>>
+
+:<color:#0891B2><&box></color> Crear entorno aislado; <<validation>>
+
+:<color:#0891B2><&database></color> Restaurar PostgreSQL; <<validation>>
+
+:<color:#0891B2><&check></color> Validar migraciones/esquemas; <<validation>>
+
+:<color:#0891B2><&shield></color> Verificar autenticación/inventario/movimientos/evidencias; <<validation>>
+
+:<color:#0891B2><&dashboard></color> Medir RPO real y RTO real; <<validation>>
+
+if (<b>RPO<=24h y RTO<=4h?</b>) then (<color:#059669><b>sí</b></color>)
+
+    :<color:#059669><&check></color> Registrar PASS; <<success>>
+
+else (<color:#DC2626><b>no</b></color>)
+
+    :<color:#DC2626><&warning></color> Registrar desviación + plan correctivo; <<error>>
+
+endif
+
+stop
+
+@enduml

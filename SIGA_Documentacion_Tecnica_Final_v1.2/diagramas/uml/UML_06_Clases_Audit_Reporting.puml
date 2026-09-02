@@ -1,0 +1,154 @@
+@startuml
+title UML-06 — Audit/Notification y Reporting/Analytics
+
+' --- Configuración visual ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+
+skinparam BackgroundColor #F8F9FA
+
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' --- Estilos base para paquetes ---
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #1976D2
+  BorderThickness 1.5
+  FontColor #0D47A1
+  FontSize 14
+  StereotypeFontColor #37474F
+  StereotypeFontSize 11
+}
+
+' --- Estilos base para clases ---
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #546E7A
+  BorderThickness 1.2
+  FontColor #263238
+  FontSize 13
+}
+
+package "MS-AUD" {
+ class AuditEvent {
+  UUID id
+  String eventType
+  UUID actorId
+  String aggregateType
+  UUID aggregateId
+  String action
+  String result
+  UUID correlationId
+  Instant occurredAt
+  jsonb details
+ }
+
+ class Notification {
+  UUID id
+  UUID userId
+  String type
+  String title
+  String message
+  String referenceType
+  UUID referenceId
+  Instant readAt
+  Instant createdAt
+ }
+
+ class AuditProcessedEvent {
+  UUID eventId
+  String consumer
+  Instant processedAt
+ }
+}
+
+package "MS-REP" {
+ class ProductProjection {
+  UUID productId
+  String sku
+  String categoryCode
+  String productType
+  decimal minStock
+  long sourceVersion
+ }
+
+ class InventoryProjection {
+  UUID stockBalanceId
+  UUID productId
+  UUID locationId
+  UUID lotId
+  UUID assetId
+  decimal quantity
+  decimal avgCostPen
+  decimal minStock
+ }
+
+ class MovementProjection {
+  UUID movementId
+  String movementCode
+  MovementType type
+  String costCenterCode
+  UUID supplierId
+  String supplierNameSnapshot
+  String supplierTaxIdSnapshot
+  decimal totalBaseCostPen
+  Instant confirmedAt
+ }
+
+ class KpiSnapshot {
+  UUID id
+  String metricCode
+  String dimensionKey
+  decimal metricValue
+  Instant measuredAt
+ }
+
+ class ReportJob {
+  UUID id
+  String reportType
+  UUID requestedByUserId
+  String format
+  jsonb filters
+  boolean persistResult
+  ReportState status
+  String objectKey
+  String sha256
+ }
+
+ class AnalyticsProcessedEvent {
+  UUID eventId
+  String consumer
+  Instant processedAt
+ }
+
+ class ExportCheckpoint {
+  String consumer
+  UUID lastEventId
+  Instant lastOccurredAt
+ }
+}
+
+AuditEvent ..> AuditProcessedEvent : consumer idempotency
+Notification ..> AuditProcessedEvent
+ProductProjection ..> AnalyticsProcessedEvent
+InventoryProjection ..> AnalyticsProcessedEvent
+MovementProjection ..> AnalyticsProcessedEvent
+KpiSnapshot ..> InventoryProjection
+KpiSnapshot ..> MovementProjection
+ReportJob --> ProductProjection
+ReportJob --> InventoryProjection
+ReportJob --> MovementProjection
+ExportCheckpoint ..> AnalyticsProcessedEvent
+
+note bottom
+MS-REP contiene read models eventualmente consistentes.
+Nunca escribe ni reemplaza inventory.stock_balance.
+end note
+@enduml

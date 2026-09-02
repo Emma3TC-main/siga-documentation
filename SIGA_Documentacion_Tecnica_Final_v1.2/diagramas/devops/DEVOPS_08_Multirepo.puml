@@ -1,0 +1,202 @@
+@startuml DEVOPS_08_Multirepository_SIGA
+
+' ============================================================
+' CONFIGURACIÓN VISUAL
+' La lógica y el contenido se mantienen según la fuente de verdad.
+' ============================================================
+
+!theme plain
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+skinparam defaultFontColor #1E293B
+skinparam dpi 300
+skinparam padding 8
+
+top to bottom direction
+
+' Ocultar el texto de los estereotipos para limpiar el diseño visual
+hide stereotype 
+
+skinparam BackgroundColor #F8FAFC
+
+' ============================================================
+' FLECHAS Y RELACIONES
+' ============================================================
+
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' CARPETAS / REPOSITORIOS
+' ============================================================
+
+skinparam folder {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    BorderThickness 1.2
+    FontColor #334155
+    FontSize 12
+}
+
+' ============================================================
+' RECTÁNGULOS / SERVICIOS
+' ============================================================
+
+skinparam rectangle {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #1E40AF
+}
+
+' ============================================================
+' ESTILOS SEMÁNTICOS
+' ============================================================
+
+<style>
+folder {
+    .backend {
+        BackgroundColor #F5F3FF
+        LineColor #7C3AED
+        FontColor #5B21B6
+    }
+    .frontend {
+        BackgroundColor #ECFDF5
+        LineColor #059669
+        FontColor #065F46
+    }
+    .infrastructure {
+        BackgroundColor #EEF2FF
+        LineColor #4F46E5
+        FontColor #3730A3
+    }
+    .documentation {
+        BackgroundColor #FFF7ED
+        LineColor #EA580C
+        FontColor #9A3412
+    }
+    .service {
+        BackgroundColor #F8FAFC
+        LineColor #64748B
+        FontColor #334155
+    }
+}
+
+rectangle {
+    .contract {
+        BackgroundColor #FEF3C7
+        LineColor #D97706
+        FontColor #92400E
+    }
+    .artifact {
+        BackgroundColor #EEF2FF
+        LineColor #4F46E5
+        FontColor #3730A3
+    }
+    .jira {
+        BackgroundColor #EFF6FF
+        LineColor #2563EB
+        FontColor #1E40AF
+    }
+}
+</style>
+
+' ============================================================
+' TÍTULO
+' ============================================================
+
+title
+<b><size:16><color:#1E293B>DEVOPS-08 — Estrategia multirepositorio SIGA</color></size></b>
+<size:11><color:#64748B>Separación de repositorios y contratos compartidos versionados</color></size>
+end title
+
+' ============================================================
+' GESTIÓN E INFRAESTRUCTURA (Capa Superior)
+' ============================================================
+
+together {
+    rectangle "<b>Jira</b>\n<size:10><color:#1E40AF><&clipboard> Gestión de issues</color></size>" as JIRA <<jira>>
+    folder "<b>siga-documentation</b>\n<size:10><color:#9A3412>Documentación</color></size>" as DOC <<documentation>>
+}
+
+' ============================================================
+' BACKEND
+' ============================================================
+
+folder "<b>Backend</b>\n<size:10><color:#5B21B6>Servicios independientes</color></size>" as Backend <<backend>> {
+
+    folder "siga-identity-service" as ID <<service>>
+    folder "siga-catalog-service" as CAT <<service>>
+    folder "siga-inventory-service" as INV <<service>>
+    folder "siga-evidence-service" as EVI <<service>>
+    folder "siga-audit-notification-service" as AUD <<service>>
+    folder "siga-reporting-analytics-service" as REP <<service>>
+
+    ' Truco de layout: Forzar matriz de 3x2 para que no sea excesivamente ancho
+    ID -[hidden]right-> CAT
+    CAT -[hidden]right-> INV
+    ID -[hidden]down-> EVI
+    EVI -[hidden]right-> AUD
+    AUD -[hidden]right-> REP
+}
+
+' ============================================================
+' FRONTEND & INFRAESTRUCTURA (Capa Inferior)
+' ============================================================
+
+together {
+    folder "<b>siga-web</b>\n<size:10><color:#065F46>Web</color></size>" as WEB <<frontend>>
+    folder "<b>siga-mobile</b>\n<size:10><color:#065F46>Mobile</color></size>" as MOB <<frontend>>
+}
+
+together {
+    folder "<b>siga-infrastructure</b>\n<size:10><color:#3730A3>Infraestructura</color></size>" as INFRA <<infrastructure>>
+    rectangle "<b>Artifact Registry</b>\n<size:10><color:#3730A3><&box> Registro de artefactos</color></size>" as AR <<artifact>>
+}
+
+' ============================================================
+' RECURSOS COMPARTIDOS (Centro)
+' ============================================================
+
+rectangle "<b>OpenAPI / Event Contracts</b>\n<size:10><color:#92400E>versionados y publicados</color></size>" as CONTRACT <<contract>>
+
+' Layout guides para organizar verticalmente el diagrama
+JIRA -[hidden]down-> Backend
+Backend -[hidden]down-> CONTRACT
+WEB -[hidden]right-> MOB
+MOB -[hidden]right-> CONTRACT
+
+' ============================================================
+' RELACIONES — FUENTE DE VERDAD
+' ============================================================
+
+ID ..> CONTRACT
+CAT ..> CONTRACT
+INV ..> CONTRACT
+EVI ..> CONTRACT
+AUD ..> CONTRACT
+REP ..> CONTRACT
+WEB ..> CONTRACT
+MOB ..> CONTRACT
+
+INFRA ..> AR
+JIRA ..> INV : issue -> branch/PR
+
+' ============================================================
+' NOTA — FUENTE DE VERDAD
+' ============================================================
+
+note bottom of CONTRACT
+  Cada repo tiene pipeline, versionado y CODEOWNERS/review propio.
+
+  Cambios contractuales requieren coordinación de versión
+  y matriz de compatibilidad.
+end note
+
+@enduml

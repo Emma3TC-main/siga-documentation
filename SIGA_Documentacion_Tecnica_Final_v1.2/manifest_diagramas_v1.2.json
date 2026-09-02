@@ -1,0 +1,497 @@
+{
+  "version": "1.2",
+  "canonical_root": "diagramas/",
+  "derived_root": "diagramas_render/",
+  "policy": "ADR-019",
+  "count": 61,
+  "items": [
+    {
+      "canonical": true,
+      "derived": "diagramas_render/bpmn/BPMN_01_Entrada.puml",
+      "canonical_sha256": "7dd126fadf312b607e3498f7d50a456d8f4a02f3075664e5800df6a17df3ba57",
+      "derived_sha256": "1a7954d3f869604b2d47586b20a779634033a268a2d56009facd735b7f8cd4b3",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/bpmn/BPMN_02_Salida.puml",
+      "canonical_sha256": "bc62c8c44be987419a6be30492a3b2f0b6cd4ecb0f24856c78a437871fc99af2",
+      "derived_sha256": "79e24d1e145dd19fa15b4870653477b7a20b03dd97d41a3a62672c04c887bb0f",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/bpmn/BPMN_03_Transferencia.puml",
+      "canonical_sha256": "e966d934e36becf5f6b1fa6bf74635ed8f2156e4bf18026394236d7831e740ea",
+      "derived_sha256": "c8a18a778cfec9917eab4f8e019f952c5c4f673d1fc72d74d23ae664d6214b54",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/bpmn/BPMN_04_Ajuste.puml",
+      "canonical_sha256": "f80cb7f23ce0771e77c419b9f71c481fdbcb3a2bca8bf1b436020bc83ffed698",
+      "derived_sha256": "ddfe74b7d7d62d74d27e392f321cce5ec3ffc8c875738776584e3a55198cd7ba",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/bpmn/BPMN_05_Autorizacion_Sensible.puml",
+      "canonical_sha256": "389e66b0868b3a05cbf7d7946e16a904580dd3255e818d366b8f2beddff9af4d",
+      "derived_sha256": "cd60d1ff671d105c5a546ee111bd4313519cc24deb27d54ac95662a56fe25c6a",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/bpmn/BPMN_06_Evidencia.puml",
+      "canonical_sha256": "658b751273e95c39740b29626d13436ab8d427a83242a8eadca48c88b3a3cb12",
+      "derived_sha256": "d096856e594767b808aed5cd7164f6fe115f09de6563547339e694c90bd9a212",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/bpmn/BPMN_07_Reporte.puml",
+      "canonical_sha256": "634a61282102f85d3e65d92c04e560fdd0b5bc9128b1fb09d972efd955404eb0",
+      "derived_sha256": "b996e3568885bf13c9952b3475bab6d34be5cb868624c20b472c846efeb628c7",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/c4/C4_01_Contexto.puml",
+      "canonical_sha256": "1a52fadb95e14e3a90011fcaecfa0e30b3144dc663c54de51b84718c1a6415d8",
+      "derived_sha256": "9da18839e53c3e8245ad465a16cdcfcf3c624ac120c822d86266a13975d10174",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/c4/C4_02_01_Contenedores_Docker_GCP.simplificado.puml",
+      "canonical_sha256": "6e559340ab278f908e743a7e8ade63173b33f45d02c11fb24e4a8422946cbebf",
+      "derived_sha256": "4f7ed515ea62974a6b0ea19f9934e7752033702eab59508197b5a1178e5a8708",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/c4/C4_02_Contenedores_Docker_GCP.puml",
+      "canonical_sha256": "48189f69b75baf9e10e6676def22cf5b0cecfa97f96d157eeb8eae4a9554ffcb",
+      "derived_sha256": "90e75043167d603157344a898b611c5fc7e08e0934afddc9576db8f347059525",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/c4/C4_03_Contenedores_Kubernetes.puml",
+      "canonical_sha256": "f7bcea65dfeed20df179f154853cef7892b2c07d0f393ee06aab2404d48ccb5c",
+      "derived_sha256": "7abb40eac021aa91dfb0ef96ac78ad996f78f2c5be92f306552a081864e74396",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/c4/C4_04_Componente_Inventory.puml",
+      "canonical_sha256": "3645eea55dc92907803fa12e0ad193dc322d4e4c211d4182d85c7d5b497c3a25",
+      "derived_sha256": "3528102610e65f178aa8db090125821bf1c109c140da3d80dedebcabad049ab2",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/c4/C4_05_Componente_Identity.puml",
+      "canonical_sha256": "5d81a405fb63e773d6e4d7fb26f987e1add5db5ae8b13a1786d529f4a697a429",
+      "derived_sha256": "a18c212ebade37116ba86a47082640b0cb98a21579df9ea3c4ab99fdbcc8d1f0",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_01_Conceptual (Original).puml",
+      "canonical_sha256": "48ac1255bcba0c54dcc88fc24c288960f2f6647c00b4a2b79d3f38d9cdb68b77",
+      "derived_sha256": "20d0d8b77ead470aad9f1aeeb7f06eaa6e50441899ec37cbdc87e66b44339f5d",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_01_Conceptual.puml",
+      "canonical_sha256": "d82bb8d30ea87ff59c02ddb6b35669bb8f4e84cdc8a47ae1289d3465834fd685",
+      "derived_sha256": "3ed3abe64ed3ce84ba9ef52b8228df938a28938a25121e7599f8240ecc42fa5d",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_02_Logico.puml",
+      "canonical_sha256": "d889405e51d57228a3c67655db16d78e7a3113859e35b2f0079970bb15d8be24",
+      "derived_sha256": "f7579d3f5b4ce9c287abbc11ea266c4b47ae9d570fbd323b1ffe8587acdad052",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_03_Fisico.puml",
+      "canonical_sha256": "8053b2bf0014328dce0319874051b4bf7d5b59a1a5ddeab6f4b05703e22d1b43",
+      "derived_sha256": "8f629ba84c5d86164fff39f375ca6a51f5c384dcdd70cd10cb725f760a566b51",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_04_Fisico_IAM.puml",
+      "canonical_sha256": "ff3c0d161fcf682a15802d467e29a46388f3b108ac5f54a13f5e87f782f7b92e",
+      "derived_sha256": "ffd680bc8fa01c325dd5aa2be939a814d03822aa7fa1f6b84985d265b91eddb8",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_05_Fisico_Catalog.puml",
+      "canonical_sha256": "d94821d205dcbe6b6fe22e1ec4b15a8bc4e5da9f60a84e30ec276775e6d56794",
+      "derived_sha256": "e7f4bd2d277de8856dab8167d1683d0d5bb8394f0c2393937d3f06e2e67ad6f1",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_06_Fisico_Inventory.puml",
+      "canonical_sha256": "6d84e127a5030ae45d39db083d50c129d84c0bedea84f860c1df46666b080645",
+      "derived_sha256": "923d1dfde922323c6e73b16f605c8b0bdbeba18dd02045b47f34b5462ec9bfda",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_07_Fisico_Evidence.puml",
+      "canonical_sha256": "a6eb707fdaba9960740db68b7d0337115e1923229b355191cd139c4b657a4f83",
+      "derived_sha256": "e070b64f6d687684359b90756f8953767e0bfcf386cc015f349a27010b45115f",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_08_Fisico_Audit_Notification.puml",
+      "canonical_sha256": "ebbe5ec0906da23137acf13b305e08cb9ca1846f0f0ca6e6558fb145e5dd8f7f",
+      "derived_sha256": "a56eaba079d54308e0e3ecc49b40b3b1ea025226ff60f96e7bb91a7f44ecb91e",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/datos/DER_09_Fisico_Reporting_Analytics.puml",
+      "canonical_sha256": "ece35942c6d28f2559c10d139f14cdfd39761a45c289e28aa0b42006ef4eced3",
+      "derived_sha256": "4fcf8849d3e108e4856f43d38c5fa1bbd40df5228027924131562f9a7033c242",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/devops/DEVOPS_01_GitFlow.puml",
+      "canonical_sha256": "9032d8a0008bd7a8bbc63f13c84a16ac6d32aa53eca8b59f7dc2aff0a71f4a61",
+      "derived_sha256": "fc6444e029ae7cbefc5c2de54ebc49d78eb644b3af9e641fcb81ed7fa1049745",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/devops/DEVOPS_02_CICD.puml",
+      "canonical_sha256": "c5238a624b81645c461e8882f9482046010a89a514e529089290499bd4a51454",
+      "derived_sha256": "e17ca82201f21c376a0a8af9102ca8d3526053019547d67a490c8c7139f6246d",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/devops/DEVOPS_03_Deployment_Docker.puml",
+      "canonical_sha256": "10778cd06a9a1955b341171359aec35b98dcf238b32436f128367c5e360818df",
+      "derived_sha256": "a38228a8c0010b2cae1e8c93d9b52ae2b7edf21b53b241821c2a395bae8e3158",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/devops/DEVOPS_04_Deployment_K8s.puml",
+      "canonical_sha256": "8f3c990e26e7294581ec516fb0fe0d46aa4dbafb78df3e110119459d5c533943",
+      "derived_sha256": "36ba3f3de136ee63af14316ed3b49beaef8d5f47d49fb3d815fabf51d5665dad",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/devops/DEVOPS_05_Observabilidad.puml",
+      "canonical_sha256": "cfbe40e7842c994ca437f53acabe0ca26fb4128ecd88e86eaaba9dbd41626847",
+      "derived_sha256": "030895ebdb64c6be033f93f64f1c82e0afd9e0f30f8febc7f064e1d50b69bfe0",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/devops/DEVOPS_06_Backup_Restore.puml",
+      "canonical_sha256": "33c34e6f1d5d0a9276864053588c5016cbab349966c539edfa809459f59bfc23",
+      "derived_sha256": "ce6fb649a5f8286f0dd7830ff5783f8e5e881f6174f263067c47c62d05a44662",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/devops/DEVOPS_07_Redes_Docker.puml",
+      "canonical_sha256": "c09112a5d1fce309dffef27d094c96032e6a76d15218892013e4e534df709dae",
+      "derived_sha256": "d239d4fcfeb11b7e14f15cb9e439bee13c0d8e0cc48f8cf14057df7289ccf230",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/devops/DEVOPS_08_Multirepo.puml",
+      "canonical_sha256": "358c6be9f337ed4e66324750cf42183dcb9449eacefa4c2d5a40fd39ea0c35dd",
+      "derived_sha256": "f99f2757250799c87144e47b4b3b78646bf9ec3830be4e5e1fe1beb3953f0e3f",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/estados/STATE_01_Movimiento.puml",
+      "canonical_sha256": "521da7e0fb74057a8b4975f1b52b489d2680baae17cbb6ce883fc6ea20632eef",
+      "derived_sha256": "5581402d52342603d348402b1ad44173af5b61a81bb9731af7e7fd08611d6532",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/estados/STATE_02_Activo.puml",
+      "canonical_sha256": "5db186aa191e117bd2d1abd3cb5fe0926c7f077bb514d00b180306386194de74",
+      "derived_sha256": "e6a8410d7290a2e35d4989efdde983a45819ae15ffb6fe1b50b207c02b681899",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/estados/STATE_03_Evidencia.puml",
+      "canonical_sha256": "76523bfd02f2956c23102c4c829f96af9d061c6741300c9ae4b32f75b1d39569",
+      "derived_sha256": "3fedd48aea8fe5142603bfa24d4d4700c1c48c504a9312e0fb917e9f489b522f",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/estados/STATE_04_Outbox.puml",
+      "canonical_sha256": "c3068166cc4cd43c9eb4441e0392205d58924ea21398e04906558eefe07ef026",
+      "derived_sha256": "288a3bb449cfe40eef4c04c1da160f0425be0323b189426f5ecf8122c78ed268",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_01_Login_MFA.puml",
+      "canonical_sha256": "83a8f1690b60bcbbd48037c8da6f93e83a55bca06da44d5014c22fc5fa70d365",
+      "derived_sha256": "16757035fa723af7acc2d385504972f0229bf7c6ae0cfa80661583e554ca7c54",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_02_Refresh_Token.puml",
+      "canonical_sha256": "93f865a456810a0cc77d1112d1297180ee4e1d75f4ed54161e83d7e520f08601",
+      "derived_sha256": "1d56a2c7895b62026444a1a6348dfff86ced83bb5d9611ac9480d5330052fdcf",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_03_Crear_Producto.puml",
+      "canonical_sha256": "c627e0ac5e68545f375dcdcd9f193192dd15a05a5c24f2f1b9f4255370117bf3",
+      "derived_sha256": "fdfe1df4e29d5c2472efb33b29baa2967181aa3d4d99e8cd9b761e83c54da0b3",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_04_Registrar_Entrada.puml",
+      "canonical_sha256": "9de323b5624d25afba1102923070594590897c60982f6937f444b55c578d25d8",
+      "derived_sha256": "3d369985898b2dcf4a9774ec31b5864770b533dcc36cb042147c83797e5e3e7a",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_05_Salida_Exitosa.puml",
+      "canonical_sha256": "30ef5d53d5e74cb8615e3c86721dcdc8a48b6b302e5fabf354c5929b05032f3c",
+      "derived_sha256": "cdeab98c2f474034403289d0dad1bb8fb0a42b6549a7e5c3f17fc81079fd0cd5",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_06_Salida_Stock_Insuficiente.puml",
+      "canonical_sha256": "229c3005fb2f203d33b9f71accbaaff49757abf25188474e352862fe177ba0bb",
+      "derived_sha256": "c958089314b0ef2bdfad21e8e510f48e35a491757da07eed0acc874e1afe9df5",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_07_Salida_Sensible_Autorizacion.puml",
+      "canonical_sha256": "f4389d4f980c3c92a26bb6abab2ee9b50a8fdae5c5a163b64e1c8b1993793d11",
+      "derived_sha256": "d99c920977b57908832891eb1ca732991051ca272a01f5f145451bffe82f2b20",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_08_Transferencia.puml",
+      "canonical_sha256": "257451c3ca4a32b777cbfe1c3e79940c6420953b98e45925df7f733d11279287",
+      "derived_sha256": "9f922467b6ca0055ccdb6f51f065773490c9630992c6d9a7da6861adf168e6a3",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_09_Ajuste.puml",
+      "canonical_sha256": "9e47b54152e8eccfc116ca3991be32dd18f3caaa940a1946f5e1c3c273e457a0",
+      "derived_sha256": "9bf6e5f39113e0a58a3ffe5c91111c3c515e2bf62df0419df5815139936a4f88",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_10_Upload_Evidencia.puml",
+      "canonical_sha256": "ca744c8e5bef93d3837eabb3422d5c627365be7ca251c970d19cdd9ecf0d9f54",
+      "derived_sha256": "3150a3ec2d8455f3b567d90c8ca9864cc3a841f64e965c87b4b1005a699d3ba4",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_11_Transactional_Outbox.puml",
+      "canonical_sha256": "8da0f70aeb3c0562301288b503f1771e9c1341ea2102b29de86a4a8928a3c728",
+      "derived_sha256": "856e1c3c98ac4d1431e729ac3a2d70b3777b4bdc3d496a01f698b63411e4e7f1",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_12_Consumer_Idempotente.puml",
+      "canonical_sha256": "03a4c3645af0399cc66589f65dc63e2e76980c4ecfe3d4cf81831fa1206d043a",
+      "derived_sha256": "deb1b6f6e31db121c7df18b0405c91b6849552535398328ed48087cd5a48f2ad",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_13_Reporte_Persistente.puml",
+      "canonical_sha256": "8ca09ab64aad668085255ddc745b66bb467dbdbe343a847cb5a6cb2a2f68db74",
+      "derived_sha256": "6756c2306f3699a74dfd5f067299ddd4ea0aa6146b46494d4ef2d9859b40f0f7",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_14_ETL_BI.puml",
+      "canonical_sha256": "ffe5320c46cafdbf539b665fc7e4bfaf75e7adf10e430b7c48517be6795f8329",
+      "derived_sha256": "114d8cec63d635be21fe82e815f12e98cc88a28ed2ca27fab6bd710444794272",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/secuencia/SEQ_15_Frontend_Refresh.puml",
+      "canonical_sha256": "80c9544dcd2d6672212d79fab66895ef60573d2858e4bb0fba4274ac383616bb",
+      "derived_sha256": "ab38e0047765d0552199601641bbc55ddb72f696b277e20ee4ac2e5d139304b4",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_01_Modelo_Dominio.puml",
+      "canonical_sha256": "01fcd090130501203ea28b8d96442eefb0114b82649c60a1b098b9bc6f81443e",
+      "derived_sha256": "903513a7c98ee4038be252ae066d20f12107cddd238835d624c881916b1a73ea",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_02_Clases_IAM.puml",
+      "canonical_sha256": "854a506e435dab70da76323b4e4c57599b9abcde0f77321f66e44adf45e98b2a",
+      "derived_sha256": "04a0e79d48758e6609b3623c2e7f7e979a9b1cdebd767a49abb8def0b9509eb6",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_03_Clases_Catalog.puml",
+      "canonical_sha256": "b80c4a63831221c969e27a65994b9d6363d25add7ae29f2819fecf61caf940cd",
+      "derived_sha256": "810f1d49b0513e14b8eabb8a207828713835b7a03af6ce89dd84dc792e02fb89",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_04_Clases_Inventory.puml",
+      "canonical_sha256": "a561da15c99f44c6f56dae982e497d7c29e68aff57ae1180b4f0e77dd4fb5039",
+      "derived_sha256": "2f1852decc89c8d3e94f5904c4feb12189fe14daaba9b23787cd59de63fc8fa7",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_05_Clases_Evidence.puml",
+      "canonical_sha256": "b6204b5cb8f830d0c8fb0e56f169077091a4e2272da2c9876e96f4c1ce10d4dd",
+      "derived_sha256": "7179417f93cba20d5a5398c8ad76355298094063d78d7d2eb3e3ad5f13932766",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_06_Clases_Audit_Reporting.puml",
+      "canonical_sha256": "c00206fe157e27d78cc3f391489443f8bedf61bb5f705b745ff53750e91dc088",
+      "derived_sha256": "b671396c2504b9fc187b1099d38d85e87434a0c9ca7192af5834baf77757c5c3",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_07_Paquetes_Backend.puml",
+      "canonical_sha256": "873575ad053f9bf8f95df23bccf07ced141d913aa39b8efed72cb6fa98cfd152",
+      "derived_sha256": "9726b9b0a0e1bc7de8a57c3a0f391ca495de8ddd189eff5231db405855c5a7c4",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_08_Paquetes_Web.puml",
+      "canonical_sha256": "be11f37ed114a230f75d897833f84416c9986be619ddac56b735556f721b623b",
+      "derived_sha256": "87c363d95e7db78843de6312e521ddc83252627ad7de4e172e306dce2b78024a",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_09_Paquetes_Mobile.puml",
+      "canonical_sha256": "b29c78cd1dd9916624a926685671e61b366871b389cb92278550a93b58fef3ec",
+      "derived_sha256": "612d0d2837d88ea601e47362b2412575672a7db3334a3dc8093626d1ff4e3da8",
+      "visual_source": "v1.1 same-path style",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_10_Casos_Uso_Negocio_Proveedores.puml",
+      "canonical_sha256": "0e17fe36017bf765ccb33a512cfdb17ce4a3d7dfac5bcedbf052ede73d16bd91",
+      "derived_sha256": "96fb8210d6a44db8e5f135893cc3d724dc52f4883e7d7c4ad1c76bb3c270abf4",
+      "visual_source": "v1.1 UML family profile",
+      "derived_render_only": true
+    },
+    {
+      "canonical": true,
+      "derived": "diagramas_render/uml/UML_11_Casos_Uso_Sistema_Proveedores.puml",
+      "canonical_sha256": "76d7387548241e06b65439ee1330ce0aa2a39ffc8bb304fb5b0ceee9e3439366",
+      "derived_sha256": "8d7ce729e1a3c445e3c233b9ffc6ed4d02df929bd2fb0d1eb2d179cc82c3e307",
+      "visual_source": "v1.1 UML family profile",
+      "derived_render_only": true
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+title UML-10 — Impacto mínimo de Proveedores en Casos de Uso del Negocio
+actor "Proveedor externo" as Supplier
+actor "Encargado / Recepción" as Clerk
+rectangle "Negocio SIGA" {
+  usecase "CUN-01\nRecepcionar y almacenar" as CUN01
+}
+Supplier --> CUN01 : entrega recurso/documento
+Clerk --> CUN01 : recibe y registra
+note bottom
+Se mantienen los 7 CUN existentes.
+El Proveedor externo se incorpora únicamente como actor de CUN-01.
+El maestro de proveedores corresponde al CUS-31 del sistema,
+no a un nuevo Caso de Uso del Negocio.
+No se agrega portal de proveedor ni proceso integral de compras.
+end note
+@enduml

@@ -1,0 +1,84 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/datos/DER_04_Fisico_IAM.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam defaultFontName Arial
+hide methods
+title DER-04 — Físico IAM
+entity "iam.user_account" as t_user_account {
+ id : uuid <<PK>>
+ username : varchar(100) <<NN,UQ>>
+ email : varchar(254) <<NN,UQ>>
+ password_hash : varchar(255) <<NN>>
+ active : boolean <<NN>>
+ mfa_enabled : boolean <<NN>>
+ mfa_secret_encrypted : text
+ failed_login_attempts : integer <<NN>>
+ locked_until : timestamptz
+ version : bigint <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "iam.role" as t_role {
+ id : uuid <<PK>>
+ code : varchar(80) <<NN,UQ>>
+ name : varchar(120) <<NN>>
+ active : boolean <<NN>>
+ version : bigint <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "iam.permission" as t_permission {
+ id : uuid <<PK>>
+ code : varchar(120) <<NN,UQ>>
+ description : varchar(255) <<NN>>
+ created_at : timestamptz <<NN>>
+}
+entity "iam.user_role" as t_user_role {
+ user_id : uuid <<NN>>
+ role_id : uuid <<NN>>
+ assigned_at : timestamptz <<NN>>
+}
+entity "iam.role_permission" as t_role_permission {
+ role_id : uuid <<NN>>
+ permission_id : uuid <<NN>>
+ assigned_at : timestamptz <<NN>>
+}
+entity "iam.refresh_token" as t_refresh_token {
+ id : uuid <<PK>>
+ user_id : uuid <<NN>>
+ token_hash : varchar(255) <<NN,UQ>>
+ jti : uuid <<NN,UQ>>
+ family_id : uuid <<NN>>
+ expires_at : timestamptz <<NN>>
+ revoked_at : timestamptz
+ replaced_by_jti : uuid
+ created_at : timestamptz <<NN>>
+}
+entity "iam.outbox_event" as t_outbox_event {
+ id : uuid <<PK>>
+ aggregate_type : varchar(80) <<NN>>
+ aggregate_id : uuid <<NN>>
+ event_type : varchar(120) <<NN>>
+ schema_version : integer <<NN>>
+ correlation_id : uuid
+ causation_id : uuid
+ payload : jsonb <<NN>>
+ status : varchar(20) <<NN>>
+ attempts : integer <<NN>>
+ next_attempt_at : timestamptz
+ occurred_at : timestamptz <<NN>>
+ published_at : timestamptz
+}
+t_user_account ||--o{ t_user_role : user_id
+t_role ||--o{ t_user_role : role_id
+t_role ||--o{ t_role_permission : role_id
+t_permission ||--o{ t_role_permission : permission_id
+t_user_account ||--o{ t_refresh_token : user_id
+@enduml

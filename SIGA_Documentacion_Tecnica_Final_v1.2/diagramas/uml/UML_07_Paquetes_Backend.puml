@@ -1,0 +1,72 @@
+@startuml
+title UML-07 — Dependencias de paquetes backend (Clean/Hexagonal)
+
+' --- Configuración visual (Skinparams) ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+skinparam BackgroundColor #F8F9FA
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' Estilos base para paquetes
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #1976D2
+  BorderThickness 1.5
+  FontColor #0D47A1
+  FontSize 14
+  StereotypeFontColor #37474F
+  StereotypeFontSize 11
+}
+
+' --- Definición de paquetes con estereotipos (iconos) y colores por capa ---
+
+' Capa de Presentación / Entrada
+package "interfaces.rest" as REST << (R, #A5D6A7) Web >> #F1F8E9
+
+' Capa de Aplicación (Casos de uso)
+package "application" as APP << (A, #90CAF9) Application >> #E3F2FD
+
+' Capa de Dominio (Núcleo)
+package "domain" as DOM << (D, #FFE082) Domain >> #FFF8E1
+
+' Capa de Infraestructura (Salida / Detalles)
+package "infrastructure.persistence" as PERS << (I, #CE93D8) Infra >> #F3E5F5
+package "infrastructure.messaging" as MSG << (I, #CE93D8) Infra >> #F3E5F5
+package "infrastructure.security" as SEC << (I, #CE93D8) Infra >> #F3E5F5
+package "infrastructure.external" as EXT << (I, #CE93D8) Infra >> #F3E5F5
+
+' --- Relaciones ---
+REST --> APP
+APP --> DOM
+PERS ..> DOM : implements repository ports
+MSG ..> APP : adapters / event ports
+SEC ..> APP
+EXT ..> APP
+
+' --- Notas ---
+note bottom
+ Regla: domain no depende de Spring, JPA, RabbitMQ, HTTP ni proveedores cloud.
+ Application orquesta casos de uso y define puertos; 
+ infrastructure implementa puertos.
+end note
+
+' --- Leyenda ---
+legend right
+ **Leyenda de Arquitectura Hexagonal**
+ ----
+ <color:#A5D6A7>■</color> **Interfaces**: Puntos de entrada / Adaptadores primarios.
+ <color:#90CAF9>■</color> **Application**: Casos de uso (orquestación) y puertos de entrada/salida.
+ <color:#FFE082>■</color> **Domain**: Núcleo (DDD). Entidades y lógica aislada de frameworks.
+ <color:#CE93D8>■</color> **Infrastructure**: Adaptadores secundarios (Persistencia, colas, etc.).
+ ----
+ **-->** Dependencia directa (Hacia adentro).
+ **..>** Inversión de dependencias (Implementación de puertos).
+endlegend
+
+@enduml

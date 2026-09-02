@@ -1,0 +1,131 @@
+@startuml C4_01_Contexto_SIGA
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/c4/C4_01_Contexto.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+
+' ============================================================
+' CONFIGURACIÓN VISUAL GENERAL
+' ============================================================
+!theme plain
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", "Helvetica Neue", Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam defaultTextAlignment center
+skinparam dpi 300
+skinparam padding 12
+skinparam nodesep 60
+skinparam ranksep 100
+
+left to right direction
+
+skinparam BackgroundColor #FFFFFF
+
+' ============================================================
+' ESTILOS DE ELEMENTOS (ESTÉTICA CORPORATIVA)
+' ============================================================
+skinparam Arrow {
+    Color #64748B
+    Thickness 1.5
+    FontColor #475569
+    FontSize 12
+    FontStyle bold
+}
+
+skinparam actor {
+    BackgroundColor #F8FAFC
+    BorderColor #475569
+    BorderThickness 1.5
+    FontColor #0F172A
+    FontSize 13
+}
+
+skinparam rectangle {
+    BackgroundColor #F1F5F9
+    BorderColor #64748B
+    BorderThickness 1.5
+    FontColor #1E293B
+    FontSize 13
+}
+
+skinparam rectangle<<MainSystem>> {
+    BackgroundColor #E0F2FE
+    BorderColor #0284C7
+    BorderThickness 2.5
+    FontColor #075985
+}
+
+skinparam cloud {
+    BackgroundColor #F1F5F9
+    BorderColor #64748B
+    BorderThickness 1.5
+    FontColor #1E293B
+    FontSize 13
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #78350F
+    FontSize 12
+    RoundCorner 8
+}
+
+' ============================================================
+' TÍTULO
+' ============================================================
+title
+<b><size:18><color:#0F172A>C4-01 — Contexto del sistema SIGA</color></size></b>
+<size:13><color:#64748B>Sistema Integral de Gestión de Almacén y sus actores y sistemas externos</color></size>
+end title
+
+' ============================================================
+' ACTORES
+' ============================================================
+actor "<size:20><&person></size>\n<b>Administrador</b>" as Admin
+actor "<size:20><&person></size>\n<b>Supervisor de Almacén</b>" as Sup
+actor "<size:20><&person></size>\n<b>Encargado de Almacén</b>" as Enc
+actor "<size:20><&mobile></size>\n<b>Usuario móvil autorizado</b>" as Mob
+actor "<size:20><&shield></size>\n<b>Seguridad / TI / DevOps</b>" as TI
+
+' ============================================================
+' SISTEMA PRINCIPAL
+' ============================================================
+rectangle "<size:26><&cube></size>\n\n<b>SIGA</b>\n<size:13>Sistema Integral de Gestión de Almacén</size>" <<MainSystem>> as SIGA
+
+' ============================================================
+' SISTEMAS EXTERNOS
+' ============================================================
+cloud "<size:20><&currency></size>\n<b>Proveedor de tipo de cambio</b>\n<size:12>(BCRP como referencia futura)</size>" as FX
+cloud "<size:20><&cloud></size>\n<b>Google Cloud Storage</b>" as GCS
+rectangle "<size:20><&bar-chart></size>\n<b>Power BI / Fabric / ETL</b>" as BI
+
+' ============================================================
+' RELACIONES
+' ============================================================
+Admin --> SIGA : administra maestros, usuarios, reportes
+Sup --> SIGA : supervisa, autoriza, ajusta
+Enc --> SIGA : entradas, salidas, transferencias
+Mob --> SIGA : consulta/movimientos online/evidencias
+TI --> SIGA : observabilidad, auditoría, continuidad
+
+SIGA --> GCS : evidencias / reportes persistentes
+SIGA --> BI : datos de solo lectura / exportaciones
+SIGA ..> FX : consulta opcional de TC\ncon fallback manual
+
+' ============================================================
+' NOTA ARQUITECTÓNICA
+' ============================================================
+note bottom of SIGA
+    <b>Autoridad transaccional y acceso a datos</b>
+
+    PostgreSQL es la autoridad transaccional.
+    Web y móvil nunca acceden directamente a la BD.
+end note
+
+@enduml

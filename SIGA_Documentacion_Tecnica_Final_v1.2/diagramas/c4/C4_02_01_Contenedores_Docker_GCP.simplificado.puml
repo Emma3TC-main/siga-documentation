@@ -1,0 +1,198 @@
+@startuml
+' ============================================================
+' CONFIGURACIÓN VISUAL (INSPIRADA EN LA REFERENCIA LIMPIA)
+' ============================================================
+!theme plain
+top to bottom direction
+
+' Se elimina "linetype ortho" para evitar el efecto spaghetti en diagramas complejos.
+' Las curvas suaves con una jerarquía estricta generan un diagrama mucho más limpio.
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam padding 12
+skinparam roundcorner 12
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI", "Helvetica Neue", Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam textalignment center
+
+' Fondo similar al diagrama de referencia (azul suave)
+skinparam BackgroundColor #E6EAF5
+
+' ============================================================
+' ESTILOS DE LÍNEAS Y FLECHAS
+' ============================================================
+skinparam ArrowColor #333333
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #333333
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' ESTILOS DE COMPONENTES POR TIPO (ESTÉTICA MINIMALISTA)
+' ============================================================
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  BorderThickness 1.5
+  FontColor #1E293B
+}
+
+skinparam node {
+  BackgroundColor #F4F6FB
+  BorderColor #8C9EFF
+  BorderThickness 2
+  FontColor #1E293B
+  FontSize 14
+  FontStyle bold
+}
+
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #8C9EFF
+  BorderThickness 1.5
+  FontColor #1E293B
+  FontSize 13
+  FontStyle bold
+}
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  BorderThickness 1.5
+  FontColor #1E293B
+}
+
+skinparam database {
+  BackgroundColor #002B5B
+  BorderColor #001A36
+  BorderThickness 1.5
+  FontColor #FFFFFF
+}
+
+skinparam queue {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  BorderThickness 1.5
+  FontColor #1E293B
+}
+
+skinparam cloud {
+  BackgroundColor #FFFFFF
+  BorderColor #5C6BC0
+  BorderThickness 1.5
+  FontColor #1E293B
+}
+
+skinparam note {
+  BackgroundColor #FFFBEB
+  BorderColor #F59E0B
+  FontColor #713F12
+  FontSize 12
+}
+
+' ============================================================
+' DIAGRAMA (CONTENIDO INMUTABLE)
+' ============================================================
+title <size:18><color:#0F172A><b>C4-02 — Contenedores: baseline Docker Compose sobre GCP</b></color></size>
+
+actor Usuario
+node "Internet" as NET <<Network>>
+cloud "Artifact Registry" as AR
+cloud "Secret Manager" as SM
+
+node "GCP Compute Engine / Linux VM" as VM {
+  
+  rectangle "Nginx\nTLS termination" as NGINX <<Proxy>>
+  rectangle "Web React/TS" as WEB <<Web>>
+  rectangle "Spring Cloud Gateway" as GW <<Gateway>>
+  
+  package "Microservicios Java 21 / Spring Boot" {
+    rectangle "MS-IAM" as IAM <<Microservice>>
+    rectangle "MS-CAT" as CAT <<Microservice>>
+    rectangle "MS-INV\nInventory + Movement" as INV <<Microservice>>
+    rectangle "MS-EVI" as EVI <<Microservice>>
+    rectangle "MS-AUD" as AUD <<Microservice>>
+    rectangle "MS-REP" as REP <<Microservice>>
+  }
+  
+  queue "RabbitMQ" as RMQ
+  database "Redis" as REDIS
+  
+  rectangle "Prometheus" as PROM <<Observability>>
+  rectangle "Grafana" as GRAF <<Observability>>
+  rectangle "Loki" as LOKI <<Observability>>
+  rectangle "Jaeger (DEV/QA)" as JAEGER <<Observability>>
+}
+
+database "Cloud SQL PostgreSQL\n(schemas por servicio)" as PG
+cloud "Google Cloud Storage" as GCS
+
+' --- JERARQUÍA OCULTA PARA FORZAR CAPAS LIMPIAS ---
+' Esto reemplaza los "together" problemáticos y fuerza el renderizado en niveles ordenados
+Usuario -[hidden]down-> NGINX
+NGINX -[hidden]down-> GW
+GW -[hidden]down-> IAM
+IAM -[hidden]down-> RMQ
+RMQ -[hidden]down-> PG
+
+' Alineación horizontal de microservicios para evitar cruces
+IAM -[hidden]right-> CAT
+CAT -[hidden]right-> INV
+INV -[hidden]right-> EVI
+EVI -[hidden]right-> AUD
+AUD -[hidden]right-> REP
+
+' --- RELACIONES FUNCIONALES ---
+Usuario --> NGINX : HTTPS 443
+NGINX --> WEB : SPA
+NGINX --> GW : /api/*
+
+GW --> IAM
+GW --> CAT
+GW --> INV
+GW --> EVI
+GW --> AUD
+GW --> REP
+
+IAM --> PG : iam schema
+CAT --> PG : catalog schema
+INV --> PG : inventory schema
+EVI --> PG : evidence schema
+AUD --> PG : audit schema
+REP --> PG : analytics schema
+
+IAM --> REDIS : OTP/revocación/rate limit
+CAT --> REDIS : caché opcional
+REP --> REDIS : caché breve dashboard
+
+CAT --> RMQ : eventos de catálogo
+INV --> RMQ : outbox publisher
+EVI --> RMQ : eventos de evidencia
+
+RMQ --> AUD
+RMQ --> REP
+
+EVI --> GCS : objetos
+REP --> GCS : reportes persistentes
+
+PROM --> IAM : scrape
+PROM --> CAT : scrape
+PROM --> INV : scrape
+PROM --> EVI : scrape
+PROM --> AUD : scrape
+PROM --> REP : scrape
+PROM --> GRAF
+
+LOKI --> GRAF
+JAEGER --> GRAF : enlace/consulta
+
+AR ..> VM : imágenes versionadas
+SM ..> VM : secretos runtime
+
+note right of INV
+  <b>Único núcleo transaccional para stock + movimiento.</b>
+  No existe movement-service independiente.
+end note
+
+@enduml

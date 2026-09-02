@@ -1,0 +1,206 @@
+@startuml
+' ============================================================
+' CONFIGURACIÓN VISUAL GENERAL Y ARQUITECTÓNICA
+' ============================================================
+!theme plain
+
+' Diseño jerárquico de arriba hacia abajo con líneas ortogonales para evitar cruces
+top to bottom direction
+skinparam linetype ortho
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", "Helvetica Neue", Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam dpi 300
+skinparam padding 12
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam textalignment center
+
+skinparam BackgroundColor #FFFFFF
+
+' ============================================================
+' ESTILOS DE LÍNEAS Y FLECHAS
+' ============================================================
+skinparam ArrowColor #64748B
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #475569
+skinparam ArrowFontSize 12
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' ESTILOS DE COMPONENTES POR TIPO (ESTEREOTIPOS VISUALES)
+' ============================================================
+skinparam actor {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam cloud {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam cloud<<Platform>> {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  BorderThickness 2.0
+  FontColor #0F172A
+  FontSize 15
+  FontStyle bold
+}
+
+skinparam node {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  BorderThickness 2
+  FontColor #3730A3
+  FontSize 14
+  FontStyle bold
+}
+
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #94A3B8
+  BorderThickness 1.5
+  FontColor #334155
+  FontSize 13
+  FontStyle bold
+}
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam rectangle<<Gateway>> {
+  BackgroundColor #FDF2F8
+  BorderColor #DB2777
+}
+
+skinparam rectangle<<Microservice>> {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+}
+
+skinparam rectangle<<Observability>> {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  BorderStyle dotted
+}
+
+skinparam database {
+  BackgroundColor #FFFBEB
+  BorderColor #D97706
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam queue {
+  BackgroundColor #FAF5FF
+  BorderColor #9333EA
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #EAB308
+  FontColor #713F12
+  FontSize 12
+}
+
+' ============================================================
+' DIAGRAMA (CONTENIDO INMUTABLE)
+' ============================================================
+title <size:18><color:#0F172A><b>C4-03 — Arquitectura objetivo Kubernetes / GKE</b></color></size>
+
+actor Usuario
+
+cloud "GCP" <<Platform>> {
+  
+  ' Agrupación visual superior (Servicios administrados externos al cluster)
+  together {
+    cloud "Secret Manager" as SM
+    cloud "Artifact Registry" as AR
+  }
+  
+  node "GKE Cluster" as GKE {
+    
+    rectangle "Ingress / Gateway" as ING <<Gateway>>
+    
+    ' Agrupación de microservicios en rejilla para un layout más limpio
+    package "Deployments stateless" {
+      together {
+        rectangle "identity-service\nreplicas N" as IAM <<Microservice>>
+        rectangle "catalog-service\nreplicas N" as CAT <<Microservice>>
+        rectangle "inventory-service\nreplicas N" as INV <<Microservice>>
+      }
+      together {
+        rectangle "evidence-service\nreplicas N" as EVI <<Microservice>>
+        rectangle "audit-notification-service\nreplicas N" as AUD <<Microservice>>
+        rectangle "reporting-analytics-service\nreplicas N" as REP <<Microservice>>
+      }
+    }
+    
+    ' Componentes stateful y de observabilidad dentro del cluster
+    together {
+      queue "RabbitMQ StatefulSet\n(o proveedor administrado futuro)" as RMQ
+      rectangle "Observability agents" as OBS <<Observability>>
+    }
+  }
+  
+  ' Agrupación visual inferior (Persistencia administrada)
+  together {
+    database "Cloud SQL PostgreSQL" as PG
+    database "Memorystore Redis" as REDIS
+    cloud "GCS" as GCS
+  }
+}
+
+' --- RELACIONES ---
+Usuario --> ING : HTTPS
+ING --> IAM
+ING --> CAT
+ING --> INV
+ING --> EVI
+ING --> AUD
+ING --> REP
+
+IAM --> PG
+CAT --> PG
+INV --> PG
+EVI --> PG
+AUD --> PG
+REP --> PG
+
+IAM --> REDIS
+REP --> REDIS
+
+INV --> RMQ
+CAT --> RMQ
+EVI --> RMQ
+
+RMQ --> AUD
+RMQ --> REP
+
+EVI --> GCS
+REP --> GCS
+
+SM ..> GKE : secretos
+AR ..> GKE : imágenes
+
+' --- NOTAS TÉCNICAS ---
+note bottom of GKE
+  <b>Objetivo de evolución, no dependencia del MVP.</b>
+  Deployments + Services + ConfigMaps/Secrets + probes + requests/limits + HPA cuando exista evidencia de necesidad.
+end note
+
+@enduml

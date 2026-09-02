@@ -1,0 +1,220 @@
+@startuml
+title UML-04 — Clases MS-INV (núcleo transaccional)
+
+' --- Configuración visual ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+
+skinparam BackgroundColor #F8F9FA
+
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' --- Estilos base para clases ---
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #546E7A
+  BorderThickness 1.2
+  FontColor #263238
+  FontSize 13
+}
+
+class SupplierReference {
+ UUID supplierId
+ String code
+ String taxId
+ String businessName
+ boolean active
+ long sourceVersion
+}
+
+class ProductReference {
+ UUID productId
+ String sku
+ ProductType productType
+ String storageUnitCode
+ String baseUnitCode
+ decimal minStock
+ boolean requiresLot
+ boolean requiresHeatNumber
+ boolean requiresSerial
+ boolean requiresExpiry
+ boolean active
+ long sourceVersion
+}
+
+class ProductUnitConversionReference {
+ UUID productId
+ String fromUnitCode
+ String toUnitCode
+ decimal factor
+ long sourceVersion
+}
+
+class Location {
+ UUID id
+ String code
+ String name
+ LocationType locationType
+ UUID parentId
+ boolean active
+ long version
+}
+
+class Lot {
+ UUID id
+ UUID productId
+ String lotNumber
+ String heatNumber
+ LocalDate expiresAt
+ LotState status
+}
+
+class Asset {
+ UUID id
+ UUID productId
+ String assetCode
+ String serialNumber
+ AssetState operationalStatus
+ jsonb technicalSnapshot
+}
+
+class StockBalance {
+ UUID id
+ UUID productId
+ UUID locationId
+ UUID lotId
+ UUID assetId
+ decimal quantity
+ decimal avgCostPen
+ long version
+}
+
+class Movement {
+ UUID id
+ String movementCode
+ MovementType movementType
+ MovementState status
+ UUID registeredByUserId
+ UUID requestedByUserId
+ String costCenterCode
+ String costCenterNameSnapshot
+ UUID supplierId
+ String supplierNameSnapshot
+ String supplierTaxIdSnapshot
+ boolean sensitive
+ String sensitivityReason
+ Instant submittedAt
+ Instant confirmedAt
+}
+
+class MovementDetail {
+ UUID id
+ int lineNumber
+ UUID movementId
+ UUID productId
+ decimal enteredQuantity
+ String unitCode
+ decimal conversionFactor
+ decimal stockQuantity
+ UUID originLocationId
+ UUID destinationLocationId
+ UUID lotId
+ UUID assetId
+ String originalCurrency
+ decimal originalUnitCost
+ decimal exchangeRate
+ LocalDate exchangeRateDate
+ String exchangeRateSource
+ decimal baseUnitCostPen
+ decimal appliedAvgCostPen
+}
+
+class MovementAuthorization {
+ UUID id
+ UUID movementId
+ Instant requestedAt
+ UUID authorizedByUserId
+ Decision decision
+ boolean stepUpVerified
+ Instant decidedAt
+ String reason
+}
+
+class PhysicalCount {
+ UUID id
+ UUID locationId
+ CountState status
+ UUID countedByUserId
+ String notes
+ Instant startedAt
+ Instant completedAt
+}
+
+class PhysicalCountLine {
+ UUID id
+ UUID countId
+ UUID productId
+ UUID lotId
+ UUID assetId
+ decimal systemQuantity
+ decimal countedQuantity
+ decimal differenceQuantity
+}
+
+class IdempotencyRecord {
+ UUID id
+ UUID idempotencyKey
+ String requestHash
+ UUID resourceId
+ int responseStatus
+ jsonb responseBody
+ Instant expiresAt
+}
+
+class ProcessedEvent {
+ UUID eventId
+ String consumer
+ Instant processedAt
+}
+
+class InventoryOutboxEvent {
+ UUID id
+ String eventType
+ UUID aggregateId
+ jsonb payload
+ OutboxState status
+ int attempts
+}
+
+Location "0..1" -- "*" Location : parent
+ProductReference "1" -- "*" ProductUnitConversionReference
+ProductReference "1" -- "*" Lot
+ProductReference "1" -- "*" Asset
+ProductReference "1" -- "*" StockBalance
+Location "1" -- "*" StockBalance
+Lot "0..1" -- "*" StockBalance
+Asset "0..1" -- "0..1" StockBalance
+SupplierReference "0..1" -- "*" Movement : supplierId
+Movement "1" -- "1..*" MovementDetail
+ProductReference "1" -- "*" MovementDetail
+Movement "1" -- "0..*" MovementAuthorization
+PhysicalCount "1" -- "*" PhysicalCountLine
+ProductReference "1" -- "*" PhysicalCountLine
+Movement ..> IdempotencyRecord
+Movement ..> InventoryOutboxEvent
+SupplierReference ..> ProcessedEvent : Supplier events
+ProductReference ..> ProcessedEvent : Product events
+
+note bottom of StockBalance
+StockBalance es la única autoridad de ubicación actual.
+Activo serializado: cantidad 0/1 y una sola existencia positiva.
+Confirmación usa @Transactional + FOR UPDATE + revalidación + Outbox.
+end note
+@enduml

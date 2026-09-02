@@ -1,0 +1,108 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/secuencia/SEQ_04_Registrar_Entrada.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+title SEQ-04 — Registrar y confirmar entrada multi-detalle
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam actor {
+  BackgroundColor<<User>> #FDEDEC
+  BorderColor<<User>> #E74C3C
+  FontColor<<User>> #C0392B
+}
+skinparam participant {
+  BackgroundColor<<Client>> #EAFAF1
+  BorderColor<<Client>> #2ECC71
+  FontColor<<Client>> #27AE60
+
+  BackgroundColor<<Gateway>> #FEF9E7
+  BorderColor<<Gateway>> #F1C40F
+  FontColor<<Gateway>> #D4AC0D
+
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+}
+skinparam database {
+  BackgroundColor<<RDBMS>> #F4ECF7
+  BorderColor<<RDBMS>> #9B59B6
+  FontColor<<RDBMS>> #8E44AD
+}
+skinparam queue {
+  BackgroundColor<<Queue>> #FDEBD0
+  BorderColor<<Queue>> #E67E22
+  FontColor<<Queue>> #D35400
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+actor "<size:18><&person></size>\nEncargado" as Encargado <<User>>
+participant "<size:18><&browser></size>\nWeb" as Web <<Client>>
+participant "<size:18><&bolt></size>\nGateway" as Gateway <<Gateway>>
+participant "<size:18><&cog></size>\nMS-INV" as INV <<Microservice>>
+database "<size:18><&hard-drive></size>\nPostgreSQL" as DB <<RDBMS>>
+
+' --- Lógica y Contenido Original ---
+Encargado -> Web : cabecera + proveedor si aplica + N detalles + ubicación/lote/serie/costo
+Web -> Gateway : POST /api/v1/movements
+Gateway -> INV
+INV -> DB : validar supplier_ref local si aplica
+INV -> DB : INSERT BORRADOR + snapshot proveedor + detalles
+INV --> Web : 201 BORRADOR
+note right of INV
+Proveedor se valida con inventory.supplier_ref.
+No REST síncrono a Catalog durante el commit.
+end note
+Encargado -> Web : confirmar
+' Corrección: Se agregó \n para unir "Idempotency-Key" a la flecha del mensaje y evitar error de sintaxis
+Web -> Gateway : POST /movements/{id}/confirm\nIdempotency-Key
+Gateway -> INV
+INV -> DB : BEGIN + validar idempotencia
+INV -> DB : lock/crear saldos destino
+INV -> INV : validar UoM, lote/activo, proveedor, TC y costo promedio
+INV -> DB : UPDATE stock + costos + movement CONFIRMADO + outbox
+alt error en cualquier paso
+ DB --> INV : excepción
+ INV -> DB : ROLLBACK
+ INV --> Web : Problem 409/422/500
+else todo válido
+ INV -> DB : COMMIT
+ INV --> Web : 200 CONFIRMADO
+end
+@enduml

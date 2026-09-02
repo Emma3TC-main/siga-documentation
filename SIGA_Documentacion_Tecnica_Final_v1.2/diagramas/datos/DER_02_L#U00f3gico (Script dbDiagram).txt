@@ -1,0 +1,669 @@
+Project SIGA_DER_02 {
+  database_type: "PostgreSQL"
+  Note: '''
+  DER-02 — Modelo lógico global por bounded contexts.
+
+  FK sólidas: solo dentro del mismo schema/ownership.
+  Relaciones entre bounded contexts: UUID externo, evento o proyección eventual.
+  PostgreSQL no contiene FK cross-schema entre microservicios.
+  '''
+}
+
+/* ============================================================
+   IAM — identity-service
+   ============================================================ */
+Table iam.user_account {
+  id uuid [pk]
+  username varchar(100)
+  email varchar(254)
+  password_hash varchar(255)
+  active boolean
+  mfa_enabled boolean
+  mfa_secret_encrypted text
+  failed_login_attempts integer
+  locked_until timestamptz
+  version bigint
+  created_at timestamptz
+  updated_at timestamptz
+
+  Note: '''
+  Identity principal.
+  No FK cross-schema hacia otros bounded contexts.
+  '''
+}
+
+Table iam.role {
+  id uuid [pk]
+  code varchar(80)
+  name varchar(120)
+  active boolean
+  version bigint
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table iam.permission {
+  id uuid [pk]
+  code varchar(120)
+  description varchar(255)
+  created_at timestamptz
+}
+
+Table iam.user_role {
+  user_id uuid
+  role_id uuid
+  assigned_at timestamptz
+
+  indexes {
+    (user_id, role_id) [pk]
+  }
+}
+
+Table iam.role_permission {
+  role_id uuid
+  permission_id uuid
+  assigned_at timestamptz
+
+  indexes {
+    (role_id, permission_id) [pk]
+  }
+}
+
+Table iam.refresh_token {
+  id uuid [pk]
+  user_id uuid
+  token_hash varchar(255)
+  jti uuid
+  family_id uuid
+  expires_at timestamptz
+  revoked_at timestamptz
+  replaced_by_jti uuid
+  created_at timestamptz
+}
+
+Table iam.outbox_event {
+  id uuid [pk]
+  aggregate_type varchar(80)
+  aggregate_id uuid
+  event_type varchar(120)
+  schema_version integer
+  correlation_id uuid
+  causation_id uuid
+  payload jsonb
+  status varchar(20)
+  attempts integer
+  next_attempt_at timestamptz
+  occurred_at timestamptz
+}
+
+/* ============================================================
+   CATALOG — catalog-service
+   ============================================================ */
+
+Table catalog.category {
+  id uuid [pk]
+  code varchar(50)
+  name varchar(120)
+  category_type varchar(40)
+  active boolean
+  version bigint
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table catalog.supplier {
+  id uuid [pk]
+  code varchar(50) [not null, unique]
+  tax_id varchar(20) [not null, unique]
+  business_name varchar(200) [not null]
+  trade_name varchar(200)
+  contact_name varchar(160)
+  phone varchar(40)
+  email varchar(254)
+  address varchar(300)
+  active boolean [not null, default: true]
+  version bigint [not null, default: 0]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table catalog.unit_measure {
+  id uuid [pk]
+  code varchar(20)
+  name varchar(80)
+  symbol varchar(20)
+  dimension varchar(40)
+  active boolean
+  version bigint
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table catalog.product {
+  id uuid [pk]
+  sku varchar(80)
+  name varchar(200)
+  category_id uuid
+  product_type varchar(40)
+  storage_unit_id uuid
+  base_unit_id uuid
+  min_stock numeric(18,6)
+  requires_lot boolean
+  requires_heat_number boolean
+  requires_expiry boolean
+  requires_serial boolean
+
+  Note: '''
+  Fuente de verdad del producto dentro de Catalog.
+  Inventory recibe una proyección mediante eventos.
+  '''
+}
+
+Table catalog.unit_conversion {
+  id uuid [pk]
+  product_id uuid
+  from_unit_id uuid
+  to_unit_id uuid
+  factor numeric(18,6)
+  active boolean
+  version bigint
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table catalog.outbox_event {
+  id uuid [pk]
+  aggregate_type varchar(80)
+  aggregate_id uuid
+  event_type varchar(120)
+  schema_version integer
+  correlation_id uuid
+  causation_id uuid
+  payload jsonb
+  status varchar(20)
+  attempts integer
+  next_attempt_at timestamptz
+  occurred_at timestamptz
+}
+
+/* ============================================================
+   INVENTORY — inventory-service
+   ============================================================ */
+
+Table inventory.location {
+  id uuid [pk]
+  code varchar(80)
+  name varchar(160)
+  location_type varchar(30)
+  parent_id uuid
+  active boolean
+  version bigint
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table inventory.supplier_ref {
+  supplier_id uuid [pk]
+  code varchar(50) [not null, unique]
+  tax_id varchar(20) [not null, unique]
+  business_name varchar(200) [not null]
+  active boolean [not null, default: true]
+  source_version bigint [not null, default: 0]
+  updated_at timestamptz [not null]
+}
+
+Table inventory.product_ref {
+  product_id uuid [pk]
+  sku varchar(80)
+  product_type varchar(40)
+  storage_unit_code varchar(20)
+  base_unit_code varchar(20)
+  min_stock numeric(18,6)
+  requires_lot boolean
+  requires_heat_number boolean
+  requires_serial boolean
+  requires_expiry boolean
+  active boolean
+  source_version bigint
+
+  Note: '''
+  Proyección local de Product.
+  product_id es UUID externo respecto a Catalog.
+  '''
+}
+
+Table inventory.product_unit_conversion_ref {
+  product_id uuid
+  from_unit_code varchar(20)
+  to_unit_code varchar(20)
+  factor numeric(18,6)
+  active boolean
+  source_version bigint
+  updated_at timestamptz
+
+  indexes {
+    (product_id, from_unit_code, to_unit_code) [pk]
+  }
+}
+
+Table inventory.lot {
+  id uuid [pk]
+  product_id uuid
+  lot_number varchar(120)
+  heat_number varchar(120)
+  manufactured_at date
+  received_at date
+  expires_at date
+  status varchar(30)
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table inventory.asset {
+  id uuid [pk]
+  product_id uuid
+  asset_code varchar(80)
+  serial_number varchar(160)
+  brand varchar(100)
+  model varchar(100)
+  operational_status varchar(40)
+  technical_snapshot jsonb
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table inventory.stock_balance {
+  id uuid [pk]
+  product_id uuid
+  location_id uuid
+  lot_id uuid
+  asset_id uuid
+  quantity numeric(18,6)
+  avg_cost_pen numeric(18,6)
+  version bigint
+  updated_at timestamptz
+
+  Note: '''
+  Autoridad de cantidad, costo y ubicación dentro de Inventory.
+  '''
+}
+
+Table inventory.movement {
+  id uuid [pk]
+  movement_code varchar(80)
+  movement_type varchar(30)
+  status varchar(40)
+  registered_by_user_id uuid
+  cost_center_name_snapshot varchar(160)
+  supplier_id uuid
+  supplier_name_snapshot varchar(200)
+  supplier_tax_id_snapshot varchar(20)
+  reference_doc_type varchar(40)
+  reference_doc_number varchar(120)
+  reason varchar(255)
+  notes text
+  is_sensitive boolean
+  sensitivity_reason varchar(255)
+}
+
+Table inventory.movement_detail {
+  id uuid [pk]
+  movement_id uuid
+  line_number integer
+  product_id uuid
+  entered_quantity numeric(18,6)
+  unit_code varchar(20)
+  conversion_factor numeric(18,6)
+  stock_quantity numeric(18,6)
+  origin_location_id uuid
+  destination_location_id uuid
+  lot_id uuid
+  asset_id uuid
+}
+
+Table inventory.movement_authorization {
+  id uuid [pk]
+  movement_id uuid
+  requested_at timestamptz
+  decided_at timestamptz
+  authorized_by_user_id uuid
+  step_up_verified boolean
+  reason varchar(255)
+}
+
+Table inventory.physical_count {
+  id uuid [pk]
+  location_id uuid
+  status varchar(30)
+  counted_by_user_id uuid
+  started_at timestamptz
+  completed_at timestamptz
+  created_at timestamptz
+}
+
+Table inventory.physical_count_line {
+  id uuid [pk]
+  count_id uuid
+  product_id uuid
+  lot_id uuid
+  asset_id uuid
+  system_quantity numeric(18,6)
+  counted_quantity numeric(18,6)
+  difference_quantity numeric(18,6)
+}
+
+Table inventory.idempotency_record {
+  id uuid [pk]
+  idempotency_key uuid
+  request_hash char(64)
+  resource_type varchar(80)
+  resource_id uuid
+  response_status integer
+  response_body jsonb
+  created_at timestamptz
+  expires_at timestamptz
+}
+
+Table inventory.processed_event {
+  event_id uuid
+  consumer varchar(120)
+  processed_at timestamptz
+
+  indexes {
+    (event_id, consumer) [pk]
+  }
+}
+
+Table inventory.outbox_event {
+  id uuid [pk]
+  aggregate_type varchar(80)
+  aggregate_id uuid
+  event_type varchar(120)
+  schema_version integer
+  correlation_id uuid
+  causation_id uuid
+  payload jsonb
+  status varchar(20)
+  attempts integer
+  next_attempt_at timestamptz
+  occurred_at timestamptz
+}
+
+/* ============================================================
+   EVIDENCE — evidence-service
+   ============================================================ */
+
+Table evidence.evidence_metadata {
+  id uuid [pk]
+  owner_type varchar(30)
+  owner_id uuid
+  original_filename varchar(255)
+  content_type varchar(120)
+  size_bytes bigint
+  storage_provider varchar(30)
+  uploaded_by_user_id uuid
+  metadata jsonb
+  uploaded_at timestamptz
+  updated_at timestamptz
+
+  Note: '''
+  owner_type + owner_id identifican el recurso propietario
+  mediante UUID externo.
+  No existe FK cross-schema.
+  '''
+}
+
+Table evidence.outbox_event {
+  id uuid [pk]
+  aggregate_type varchar(80)
+  aggregate_id uuid
+  event_type varchar(120)
+  schema_version integer
+  correlation_id uuid
+  causation_id uuid
+  payload jsonb
+  status varchar(20)
+  attempts integer
+  next_attempt_at timestamptz
+  occurred_at timestamptz
+}
+
+/* ============================================================
+   AUDIT — audit-notification-service
+   ============================================================ */
+
+Table audit.audit_event {
+  id uuid [pk]
+  event_type varchar(120)
+  actor_id uuid
+  aggregate_id uuid
+  action varchar(120)
+  result varchar(30)
+  correlation_id uuid
+  details jsonb
+  occurred_at timestamptz
+}
+
+Table audit.notification {
+  id uuid [pk]
+  user_id uuid
+  title varchar(160)
+  message text
+  reference_type varchar(80)
+  reference_id uuid
+  read_at timestamptz
+  created_at timestamptz
+}
+
+Table audit.processed_event {
+  event_id uuid
+  consumer varchar(120)
+  processed_at timestamptz
+
+  indexes {
+    (event_id, consumer) [pk]
+  }
+}
+
+/* ============================================================
+   ANALYTICS — reporting-analytics-service
+   ============================================================ */
+
+Table analytics.product_projection {
+  product_id uuid [pk]
+  sku varchar(80)
+  name varchar(200)
+  category_code varchar(50)
+  category_name varchar(120)
+  product_type varchar(40)
+  base_unit_code varchar(20)
+  storage_unit_code varchar(20)
+  min_stock numeric(18,6)
+  active boolean
+  source_version bigint
+  source_event_id uuid
+
+  Note: '''
+  Read model derivado de eventos.
+  No es fuente transaccional de productos.
+  '''
+}
+
+Table analytics.inventory_projection {
+  stock_balance_id uuid [pk]
+  product_id uuid
+  location_id uuid
+  lot_id uuid
+  asset_id uuid
+  quantity numeric(18,6)
+  avg_cost_pen numeric(18,6)
+  min_stock numeric(18,6)
+  source_event_id uuid
+  updated_at timestamptz
+
+  Note: '''
+  Read model derivado de Inventory.
+  No reemplaza inventory.stock_balance.
+  '''
+}
+Table analytics.movement_projection {
+  movement_id uuid [pk]
+  movement_code varchar(80)
+  movement_type varchar(30)
+  status varchar(40)
+  registered_by_user_id uuid
+  requested_by_user_id uuid
+  cost_center_code varchar(80)
+  cost_center_name_snapshot varchar(160)
+  supplier_id uuid
+  supplier_name_snapshot varchar(200)
+  supplier_tax_id_snapshot varchar(20)
+  total_base_cost_pen numeric(18,6)
+  confirmed_at timestamptz
+  source_event_id uuid
+  updated_at timestamptz
+}
+
+Table analytics.kpi_snapshot {
+  id uuid [pk]
+  metric_code varchar(80)
+  dimension_key varchar(160)
+  metric_value numeric(20,6)
+  measured_at timestamptz
+  source_event_id uuid
+  created_at timestamptz
+}
+
+Table analytics.report_job {
+  id uuid [pk]
+  report_type varchar(80)
+  requested_by_user_id uuid
+  filters jsonb
+  persist_result boolean
+  status varchar(30)
+  object_key varchar(500)
+  error_message text
+  created_at timestamptz
+  started_at timestamptz
+  completed_at timestamptz
+}
+
+Table analytics.processed_event {
+  event_id uuid
+  consumer varchar(120)
+  processed_at timestamptz
+
+  indexes {
+    (event_id, consumer) [pk]
+  }
+}
+
+Table analytics.export_checkpoint {
+  consumer varchar(120) [pk]
+  last_event_id uuid
+  last_occurred_at timestamptz
+  updated_at timestamptz
+}
+
+
+/* ============================================================
+   FK INTERNAS — MISMO SCHEMA / OWNERSHIP
+   ============================================================ */
+
+/* IAM */
+
+Ref: iam.user_account.id < iam.user_role.user_id
+Ref: iam.role.id < iam.user_role.role_id
+
+Ref: iam.role.id < iam.role_permission.role_id
+Ref: iam.permission.id < iam.role_permission.permission_id
+
+Ref: iam.user_account.id < iam.refresh_token.user_id
+
+
+/* Catalog */
+
+Ref: catalog.category.id < catalog.product.category_id
+
+Ref: catalog.product.id < catalog.unit_conversion.product_id
+
+Ref: catalog.unit_measure.id < catalog.unit_conversion.from_unit_id
+Ref: catalog.unit_measure.id < catalog.unit_conversion.to_unit_id
+
+
+/* Inventory */
+
+Ref: inventory.location.id < inventory.location.parent_id
+
+Ref: inventory.product_ref.product_id < inventory.product_unit_conversion_ref.product_id
+
+Ref: inventory.product_ref.product_id < inventory.lot.product_id
+
+Ref: inventory.product_ref.product_id < inventory.asset.product_id
+
+Ref: inventory.product_ref.product_id < inventory.stock_balance.product_id
+
+Ref: inventory.location.id < inventory.stock_balance.location_id
+
+Ref: inventory.lot.id < inventory.stock_balance.lot_id
+
+Ref: inventory.asset.id < inventory.stock_balance.asset_id
+
+Ref: inventory.movement.id < inventory.movement_detail.movement_id
+
+Ref: inventory.movement.id < inventory.movement_authorization.movement_id
+
+Ref: inventory.physical_count.id < inventory.physical_count_line.count_id
+
+
+/* ============================================================
+   RELACIONES ENTRE BOUNDED CONTEXTS
+   NO SON FK FÍSICAS
+   ============================================================ */
+
+/*
+  catalog.product
+      ..
+      .. ProductCreated / ProductUpdated
+      ..
+      > inventory.product_ref
+
+  catalog.unit_conversion
+      ..
+      .. event projection
+      ..
+      > inventory.product_unit_conversion_ref
+
+  inventory.movement
+      ..
+      .. owner UUID
+      ..
+      > evidence.evidence_metadata
+
+  inventory.asset
+      ..
+      .. owner UUID
+      ..
+      > evidence.evidence_metadata
+
+  inventory.outbox_event
+      ..
+      .. RabbitMQ
+      ..
+      > audit.processed_event
+
+  inventory.outbox_event
+      ..
+      .. RabbitMQ
+      ..
+      > analytics.processed_event
+
+  catalog.outbox_event
+      ..
+      .. RabbitMQ
+      ..
+      > inventory.processed_event
+*/
+
+
+Ref: inventory.movement.supplier_id > inventory.supplier_ref.supplier_id

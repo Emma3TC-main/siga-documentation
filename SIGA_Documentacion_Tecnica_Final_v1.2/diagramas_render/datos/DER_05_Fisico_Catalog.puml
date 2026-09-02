@@ -1,0 +1,101 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/datos/DER_05_Fisico_Catalog.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam defaultFontName Arial
+hide methods
+title DER-05 — Físico Catalog
+entity "catalog.category" as t_category {
+ id : uuid <<PK>>
+ code : varchar(50) <<NN,UQ>>
+ name : varchar(120) <<NN>>
+ category_type : varchar(40) <<NN>>
+ active : boolean <<NN>>
+ version : bigint <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "catalog.supplier" as t_supplier {
+ id : uuid <<PK>>
+ code : varchar(50) <<NN,UQ>>
+ tax_id : varchar(20) <<NN,UQ>>
+ business_name : varchar(200) <<NN>>
+ trade_name : varchar(200)
+ contact_name : varchar(160)
+ phone : varchar(40)
+ email : varchar(254)
+ address : varchar(300)
+ active : boolean <<NN>>
+ version : bigint <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "catalog.unit_measure" as t_unit_measure {
+ id : uuid <<PK>>
+ code : varchar(20) <<NN,UQ>>
+ name : varchar(80) <<NN>>
+ symbol : varchar(20) <<NN>>
+ dimension : varchar(40) <<NN>>
+ active : boolean <<NN>>
+ version : bigint <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "catalog.product" as t_product {
+ id : uuid <<PK>>
+ sku : varchar(80) <<NN,UQ>>
+ name : varchar(200) <<NN>>
+ category_id : uuid <<NN>>
+ product_type : varchar(40) <<NN>>
+ storage_unit_id : uuid <<NN>>
+ base_unit_id : uuid <<NN>>
+ min_stock : numeric(18,6) <<NN>>
+ requires_lot : boolean <<NN>>
+ requires_heat_number : boolean <<NN>>
+ requires_expiry : boolean <<NN>>
+ requires_serial : boolean <<NN>>
+ technical_attributes : jsonb <<NN>>
+ active : boolean <<NN>>
+ version : bigint <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "catalog.unit_conversion" as t_unit_conversion {
+ id : uuid <<PK>>
+ product_id : uuid <<NN>>
+ from_unit_id : uuid <<NN>>
+ to_unit_id : uuid <<NN>>
+ factor : numeric(18,6) <<NN>>
+ active : boolean <<NN>>
+ version : bigint <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "catalog.outbox_event" as t_outbox_event {
+ id : uuid <<PK>>
+ aggregate_type : varchar(80) <<NN>>
+ aggregate_id : uuid <<NN>>
+ event_type : varchar(120) <<NN>>
+ schema_version : integer <<NN>>
+ correlation_id : uuid
+ causation_id : uuid
+ payload : jsonb <<NN>>
+ status : varchar(20) <<NN>>
+ attempts : integer <<NN>>
+ next_attempt_at : timestamptz
+ occurred_at : timestamptz <<NN>>
+ published_at : timestamptz
+}
+t_category ||--o{ t_product : category_id
+t_unit_measure ||--o{ t_product : storage_unit_id
+t_unit_measure ||--o{ t_product : base_unit_id
+t_product ||--o{ t_unit_conversion : product_id
+t_unit_measure ||--o{ t_unit_conversion : from_unit_id
+t_unit_measure ||--o{ t_unit_conversion : to_unit_id
+@enduml

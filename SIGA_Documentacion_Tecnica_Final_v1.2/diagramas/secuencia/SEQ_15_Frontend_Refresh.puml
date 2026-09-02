@@ -1,0 +1,77 @@
+@startuml
+title SEQ-15 — Renovación de access token en Web
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam actor {
+  BackgroundColor<<User>> #FDEDEC
+  BorderColor<<User>> #E74C3C
+  FontColor<<User>> #C0392B
+}
+skinparam participant {
+  BackgroundColor<<Client>> #EAFAF1
+  BorderColor<<Client>> #2ECC71
+  FontColor<<Client>> #27AE60
+
+  BackgroundColor<<Gateway>> #FEF9E7
+  BorderColor<<Gateway>> #F1C40F
+  FontColor<<Gateway>> #D4AC0D
+
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+actor "<size:18><&person></size>\nUsuario" as Usuario <<User>>
+participant "<size:18><&browser></size>\nReact SPA" as WEB <<Client>>
+participant "<size:18><&bolt></size>\nGateway" as Gateway <<Gateway>>
+participant "<size:18><&shield></size>\nMS-IAM" as IAM <<Microservice>>
+
+' --- Lógica y Contenido Original ---
+' Corrección: Se agregó \n para unir los textos sueltos a las flechas y evitar errores de sintaxis
+WEB -> Gateway : GET /api/v1/inventory\nBearer access expirado
+Gateway --> WEB : 401 AUTH_TOKEN_EXPIRED
+WEB -> WEB : interceptor coordina refresh único
+WEB -> Gateway : POST /api/v1/auth/refresh\nHttpOnly cookie enviada por navegador
+Gateway -> IAM
+IAM --> WEB : nuevo access (refresh rotado en cookie)
+WEB -> Gateway : reintenta request original con nuevo Bearer
+Gateway --> WEB : 200
+
+note right of WEB
+Evitar múltiples refresh simultáneos: una promesa/lock de cliente comparte el resultado entre requests concurrentes.
+end note
+@enduml

@@ -1,0 +1,196 @@
+@startuml DEVOPS_03_Deployment_Baseline
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/devops/DEVOPS_03_Deployment_Docker.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+
+' ============================================================
+' CONFIGURACIÓN VISUAL
+' La fuente de verdad lógica es DEVOPS-03 original.
+' Esta sección modifica únicamente la presentación.
+' ============================================================
+
+!theme plain
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+skinparam defaultFontColor #1E293B
+skinparam dpi 300
+skinparam padding 8
+
+top to bottom direction
+
+skinparam BackgroundColor #F8FAFC
+
+' ============================================================
+' FLECHAS Y RELACIONES
+' ============================================================
+
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' NODO / CONTENEDOR DE INFRAESTRUCTURA
+' ============================================================
+
+skinparam node {
+    BackgroundColor #FFFFFF
+    BorderColor #64748B
+    BorderThickness 1.5
+    FontColor #0F172A
+    FontStyle bold
+    FontSize 13
+}
+
+' ============================================================
+' RECTÁNGULOS / SERVICIOS
+' ============================================================
+
+skinparam rectangle {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #1E40AF
+}
+
+' ============================================================
+' COLAS / MENSAJERÍA
+' ============================================================
+
+skinparam queue {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    BorderThickness 1.2
+    FontColor #92400E
+}
+
+' ============================================================
+' BASES DE DATOS / ALMACENAMIENTO
+' ============================================================
+
+skinparam database {
+    BackgroundColor #ECFEFF
+    BorderColor #0891B2
+    BorderThickness 1.2
+    FontColor #155E75
+}
+
+' ============================================================
+' SERVICIOS CLOUD / EXTERNOS
+' ============================================================
+
+skinparam cloud {
+    BackgroundColor #EEF2FF
+    BorderColor #4F46E5
+    BorderThickness 1.2
+    FontColor #3730A3
+}
+
+' ============================================================
+' NOTAS
+' ============================================================
+
+skinparam NoteBackgroundColor #EFF6FF
+skinparam NoteBorderColor #3B82F6
+skinparam NoteFontColor #1E3A8A
+skinparam NoteRoundCorner 10
+skinparam NoteFontSize 11
+
+' ============================================================
+' ESTILOS ESPECÍFICOS
+' ============================================================
+
+<style>
+
+rectangle {
+
+    .proxy {
+        BackgroundColor #F1F5F9
+        LineColor #475569
+        FontColor #1E293B
+    }
+
+    .obs {
+        BackgroundColor #F5F3FF
+        LineColor #7C3AED
+        FontColor #5B21B6
+    }
+}
+
+</style>
+
+' ============================================================
+' TÍTULO
+' ============================================================
+
+title
+<b><size:16><color:#1E293B>DEVOPS-03 — Deployment baseline Docker Compose</color></size></b>
+<size:11><color:#64748B>Infraestructura base de contenedores y servicios gestionados</color></size>
+end title
+
+' ============================================================
+' ARQUITECTURA DE DESPLIEGUE
+' ============================================================
+
+node "<b>Compute Engine VM</b>\n<size:10><color:#64748B>Entorno Docker Compose</color></size>" as VM {
+
+    rectangle "<b>Nginx</b>\n<size:10><color:#475569><&globe> Reverse Proxy / SSL (80/443)</color></size>" as Nginx <<proxy>>
+
+    rectangle "<b>Web</b>\n<size:10><color:#2563EB><&browser> Frontend SPA</color></size>" as WEB
+
+    rectangle "<b>Gateway</b>\n<size:10><color:#2563EB><&transfer> API Gateway</color></size>" as Gateway
+
+    rectangle "<b>6 Microservices</b>\n<size:10><color:#2563EB><&layers> Lógica de Negocio</color></size>" as MS
+
+    queue "<b>RabbitMQ</b>\n<size:10><color:#92400E><&envelope-closed> Message Broker</color></size>" as RabbitMQ
+
+    database "<b>Redis</b>\n<size:10><color:#155E75><&bolt> Cache / Session Store</color></size>" as Redis
+
+    rectangle "<b>Prometheus/Grafana/Loki</b>\n<size:10><color:#5B21B6><&dashboard> Observabilidad</color></size>" as OBS <<obs>>
+}
+
+database "<b>Cloud SQL</b>\n<size:10><color:#155E75><&hard-drive> PostgreSQL Gestionado</color></size>" as SQL
+
+cloud "<b>GCS</b>\n<size:10><color:#3730A3><&cloud> Google Cloud Storage</color></size>" as GCS
+
+cloud "<b>Secret Manager</b>\n<size:10><color:#3730A3><&key> Secretos & Variables</color></size>" as SM
+
+cloud "<b>Artifact Registry</b>\n<size:10><color:#3730A3><&box> Registro de Imágenes</color></size>" as AR
+
+' ============================================================
+' RELACIONES — FUENTE DE VERDAD
+' ============================================================
+
+Nginx --> WEB
+Nginx --> Gateway
+Gateway --> MS
+MS --> SQL
+MS --> Redis
+MS --> RabbitMQ
+MS --> GCS
+OBS ..> MS
+SM ..> MS
+AR ..> MS : docker pull
+
+' ============================================================
+' NOTA — FUENTE DE VERDAD
+' ============================================================
+
+note bottom
+  <b>Políticas de Exposición y Red:</b>
+
+  Solo <b>80/443</b> públicos; 80 redirige a 443.
+
+  PostgreSQL/Redis/RabbitMQ/MinIO/Actuator sensible
+  no se exponen a Internet.
+end note
+
+@enduml

@@ -1,0 +1,149 @@
+@startuml
+
+' ============================================================
+' ESTILOS GENERALES — STATE DIAGRAM SIGA
+' ============================================================
+
+!theme plain
+
+' --- Renderizado y geometría general ---
+skinparam dpi 300
+skinparam shadowing false
+skinparam roundcorner 10
+skinparam padding 6
+skinparam nodesep 55
+skinparam ranksep 45
+
+' --- Tipografía general ---
+skinparam defaultFontName "Inter", "Segoe UI", "Helvetica", Arial, sans-serif
+skinparam defaultFontSize 12
+skinparam defaultFontColor #1E293B
+
+' --- Fondo ---
+skinparam BackgroundColor #FFFFFF
+
+' ============================================================
+' TÍTULO
+' ============================================================
+
+skinparam title {
+    FontSize 15
+    FontStyle bold
+    FontColor #0F172A
+    BorderColor transparent
+    BackgroundColor transparent
+}
+
+' ============================================================
+' TRANSICIONES / FLECHAS
+' ============================================================
+
+skinparam ArrowColor #64748B
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 11
+skinparam ArrowThickness 1.2
+
+' ============================================================
+' ESTADOS — ESTILO BASE
+' ============================================================
+
+skinparam state {
+    BackgroundColor #F8FAFC
+    BorderColor #94A3B8
+    BorderThickness 1.5
+    FontColor #0F172A
+    FontSize 12
+    FontStyle bold
+
+    StartColor #0EA5E9
+    EndColor #64748B
+}
+
+' ============================================================
+' ESTADOS — PALETA SEMÁNTICA
+' ============================================================
+
+' Estado inicial / borrador
+skinparam state<<draft>> {
+    BackgroundColor #EFF6FF
+    BorderColor #3B82F6
+    FontColor #1D4ED8
+}
+
+' Estado pendiente / espera
+skinparam state<<pending>> {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #B45309
+}
+
+' Estado autorizado / validado
+skinparam state<<authorized>> {
+    BackgroundColor #EEF2FF
+    BorderColor #6366F1
+    FontColor #4338CA
+}
+
+' Estado exitoso / confirmado
+skinparam state<<success>> {
+    BackgroundColor #ECFDF5
+    BorderColor #10B981
+    FontColor #047857
+}
+
+' Estado cancelado / neutral
+skinparam state<<cancelled>> {
+    BackgroundColor #F1F5F9
+    BorderColor #94A3B8
+    FontColor #64748B
+}
+
+' Estado rechazado / error
+skinparam state<<rejected>> {
+    BackgroundColor #FEF2F2
+    BorderColor #EF4444
+    FontColor #B91C1C
+}
+
+' ============================================================
+' NOTAS
+' ============================================================
+
+skinparam Note {
+    BackgroundColor #FEFCE8
+    BorderColor #FACC15
+    BorderThickness 1
+    FontColor #713F12
+    FontSize 11
+    RoundCorner 8
+}
+
+' ============================================================
+' LÓGICA DEL DIAGRAMA
+' ============================================================
+
+title STATE-03 — Ciclo de vida de evidencia
+
+' Asignación de estereotipos para paleta de colores
+state RECIBIDA <<draft>>
+state VALIDANDO <<pending>>
+state ALMACENADA <<authorized>>
+state DISPONIBLE <<success>>
+state ARCHIVADA <<cancelled>>
+state RECHAZADA <<rejected>>
+
+[*] --> RECIBIDA : upload multipart
+RECIBIDA --> VALIDANDO : MIME/magic/size/hash
+VALIDANDO --> ALMACENADA : object storage OK + metadata persistida
+VALIDANDO --> RECHAZADA : validación falla
+ALMACENADA --> DISPONIBLE : asociación consistente
+DISPONIBLE --> ARCHIVADA : política de retención/versionado
+RECHAZADA --> [*]
+ARCHIVADA --> [*]
+
+note right of ALMACENADA
+Un objeto sin metadata o metadata sin objeto es incidente de integridad documental.
+ClamAV se documenta como hardening futuro, no dependencia MVP.
+end note
+
+@enduml

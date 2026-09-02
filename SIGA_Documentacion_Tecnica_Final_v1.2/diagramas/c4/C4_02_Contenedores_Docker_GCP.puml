@@ -1,0 +1,211 @@
+@startuml
+' ============================================================
+' CONFIGURACIÓN VISUAL GENERAL
+' ============================================================
+!theme plain
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", "Helvetica Neue", Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam dpi 300
+skinparam padding 10
+skinparam nodesep 60
+skinparam ranksep 90
+skinparam textalignment center
+
+skinparam BackgroundColor #FFFFFF
+
+' ============================================================
+' ESTILOS DE LÍNEAS Y FLECHAS
+' ============================================================
+skinparam ArrowColor #64748B
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #475569
+skinparam ArrowFontSize 12
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' ESTILOS DE COMPONENTES POR TIPO (ESTEREOTIPOS VISUALES)
+' ============================================================
+skinparam actor {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam node {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  BorderThickness 2
+  FontColor #0F172A
+  FontSize 14
+  FontStyle bold
+}
+
+skinparam node<<Network>> {
+  BackgroundColor #F1F5F9
+  BorderColor #94A3B8
+  BorderThickness 1.5
+  FontColor #475569
+  BorderStyle dashed
+}
+
+skinparam package {
+  BackgroundColor #F1F5F9
+  BorderColor #94A3B8
+  BorderThickness 1.5
+  FontColor #334155
+  FontSize 13
+  FontStyle bold
+}
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam rectangle<<Proxy>> {
+  BackgroundColor #F1F5F9
+  BorderColor #475569
+}
+
+skinparam rectangle<<Web>> {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+}
+
+skinparam rectangle<<Gateway>> {
+  BackgroundColor #FDF2F8
+  BorderColor #DB2777
+}
+
+skinparam rectangle<<Microservice>> {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+}
+
+skinparam rectangle<<Observability>> {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  BorderStyle dotted
+}
+
+skinparam database {
+  BackgroundColor #FFFBEB
+  BorderColor #D97706
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam queue {
+  BackgroundColor #FAF5FF
+  BorderColor #9333EA
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam cloud {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #EAB308
+  FontColor #713F12
+  FontSize 12
+}
+
+' ============================================================
+' DIAGRAMA (CONTENIDO INMUTABLE)
+' ============================================================
+title <size:18><color:#0F172A><b>C4-02 — Contenedores: baseline Docker Compose sobre GCP</b></color></size>
+left to right direction
+
+actor Usuario
+
+node "Internet" as NET <<Network>>
+
+node "GCP Compute Engine / Linux VM" as VM {
+  rectangle "Nginx\nTLS termination" as NGINX <<Proxy>>
+  rectangle "Web React/TS" as WEB <<Web>>
+  rectangle "Spring Cloud Gateway" as GW <<Gateway>>
+  
+  package "Microservicios Java 21 / Spring Boot" {
+    rectangle "MS-IAM" as IAM <<Microservice>>
+    rectangle "MS-CAT" as CAT <<Microservice>>
+    rectangle "MS-INV\nInventory + Movement" as INV <<Microservice>>
+    rectangle "MS-EVI" as EVI <<Microservice>>
+    rectangle "MS-AUD" as AUD <<Microservice>>
+    rectangle "MS-REP" as REP <<Microservice>>
+  }
+  
+  queue "RabbitMQ" as RMQ
+  database "Redis" as REDIS
+  
+  rectangle "Prometheus" as PROM <<Observability>>
+  rectangle "Grafana" as GRAF <<Observability>>
+  rectangle "Loki" as LOKI <<Observability>>
+  rectangle "Jaeger (DEV/QA)" as JAEGER <<Observability>>
+}
+
+database "Cloud SQL PostgreSQL\n(schemas por servicio)" as PG
+cloud "Google Cloud Storage" as GCS
+cloud "Artifact Registry" as AR
+cloud "Secret Manager" as SM
+
+Usuario --> NGINX : HTTPS 443
+NGINX --> WEB : SPA
+NGINX --> GW : /api/*
+GW --> IAM
+GW --> CAT
+GW --> INV
+GW --> EVI
+GW --> AUD
+GW --> REP
+
+IAM --> PG : iam schema
+CAT --> PG : catalog schema
+INV --> PG : inventory schema
+EVI --> PG : evidence schema
+AUD --> PG : audit schema
+REP --> PG : analytics schema
+
+IAM --> REDIS : OTP/revocación/rate limit
+CAT --> REDIS : caché opcional
+REP --> REDIS : caché breve dashboard
+
+CAT --> RMQ : eventos de catálogo
+INV --> RMQ : outbox publisher
+EVI --> RMQ : eventos de evidencia
+RMQ --> AUD
+RMQ --> REP
+
+EVI --> GCS : objetos
+REP --> GCS : reportes persistentes
+
+PROM --> IAM : scrape
+PROM --> CAT : scrape
+PROM --> INV : scrape
+PROM --> EVI : scrape
+PROM --> AUD : scrape
+PROM --> REP : scrape
+PROM --> GRAF
+LOKI --> GRAF
+JAEGER --> GRAF : enlace/consulta
+
+AR ..> VM : imágenes versionadas
+SM ..> VM : secretos runtime
+
+note right of INV
+  <b>Único núcleo transaccional para stock + movimiento.</b>
+  No existe movement-service independiente.
+end note
+
+@enduml

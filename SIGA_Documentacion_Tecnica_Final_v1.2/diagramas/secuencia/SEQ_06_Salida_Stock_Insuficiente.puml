@@ -1,0 +1,92 @@
+@startuml
+title SEQ-06 — Rechazo por stock insuficiente bajo concurrencia
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam actor {
+  BackgroundColor<<User>> #FDEDEC
+  BorderColor<<User>> #E74C3C
+  FontColor<<User>> #C0392B
+}
+skinparam participant {
+  BackgroundColor<<Client>> #EAFAF1
+  BorderColor<<Client>> #2ECC71
+  FontColor<<Client>> #27AE60
+
+  BackgroundColor<<Gateway>> #FEF9E7
+  BorderColor<<Gateway>> #F1C40F
+  FontColor<<Gateway>> #D4AC0D
+
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+}
+skinparam database {
+  BackgroundColor<<RDBMS>> #F4ECF7
+  BorderColor<<RDBMS>> #9B59B6
+  FontColor<<RDBMS>> #8E44AD
+}
+skinparam queue {
+  BackgroundColor<<Queue>> #FDEBD0
+  BorderColor<<Queue>> #E67E22
+  FontColor<<Queue>> #D35400
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+actor "<size:18><&person></size>\nUsuario A" as A <<User>>
+actor "<size:18><&person></size>\nUsuario B" as B <<User>>
+participant "<size:18><&cog></size>\nMS-INV" as INV <<Microservice>>
+database "<size:18><&hard-drive></size>\nPostgreSQL" as DB <<RDBMS>>
+
+' --- Lógica y Contenido Original ---
+A -> INV : confirmar salida 8 (stock inicial 10)
+INV -> DB : BEGIN + SELECT FOR UPDATE
+DB --> INV : lock, qty=10
+B -> INV : confirmar salida 7
+INV -> DB : SELECT FOR UPDATE
+note right of DB : B espera el lock de la misma existencia
+INV -> DB : A UPDATE qty=2 + movement + outbox
+INV -> DB : A COMMIT
+DB --> INV : B obtiene lock, qty=2
+INV -> INV : 7 > 2 => insuficiente
+INV -> DB : B ROLLBACK
+INV --> B : 409 INV_STOCK_001
+INV --> A : 200 CONFIRMADO
+
+' Corrección: Anclamos la nota para evitar el error de "note bottom" no asociado
+note over A, DB
+Invariante comprobable: quantity nunca < 0 y jamás existe movimiento confirmado sin su actualización de stock.
+end note
+@enduml

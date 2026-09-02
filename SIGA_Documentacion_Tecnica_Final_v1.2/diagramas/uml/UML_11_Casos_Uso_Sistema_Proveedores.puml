@@ -1,0 +1,28 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+title UML-11 — Casos de Uso del Sistema: Proveedores
+actor Administrador as Admin
+actor "Usuario de catálogo autorizado" as CatalogUser
+actor "Encargado / Recepción" as Clerk
+rectangle SIGA {
+  usecase "CUS-31\nGestionar proveedores" as CUS31
+  usecase "CUS-07\nRegistrar entrada" as CUS07
+  usecase "Validar proveedor activo\ncuando la recepción sea externa" as Validate
+}
+Admin --> CUS31
+CatalogUser --> CUS31
+Clerk --> CUS07
+CUS07 ..> Validate : <<include>>
+note right of CUS31
+Mantiene el maestro básico usado
+por las recepciones externas.
+end note
+note bottom
+El proveedor externo no inicia sesión ni opera SIGA.
+CUS-31 se agrega sin renumerar CUS-01..CUS-30.
+La relación entre CUS-31 y CUS-07 es de datos maestros,
+no un <<include>> entre ambos casos de uso.
+end note
+@enduml

@@ -1,0 +1,117 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/datos/DER_03_Fisico.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+' --- CONFIGURACIÓN BASE Y ESTILOS ---
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+skinparam nodesep 60
+skinparam ranksep 70
+skinparam defaultFontSize 13
+
+' --- PALETA DE COLORES PROFESIONAL ---
+skinparam database {
+    BackGroundColor #FAFAFC
+    BorderColor #4A4A4A
+    BorderThickness 2.0
+    HeaderBackgroundColor #D6EAF8
+}
+
+' Estilos específicos para cada schema
+skinparam package<<iam>> {
+    BackGroundColor #EBF5FB
+    BorderColor #2980B9
+    BorderThickness 1.5
+    HeaderBackgroundColor #2980B9
+    HeaderFontColor #FFFFFF
+}
+skinparam package<<catalog>> {
+    BackGroundColor #EAFAF1
+    BorderColor #27AE60
+    BorderThickness 1.5
+    HeaderBackgroundColor #27AE60
+    HeaderFontColor #FFFFFF
+}
+skinparam package<<inventory>> {
+    BackGroundColor #FEF5E7
+    BorderColor #D35400
+    BorderThickness 1.5
+    HeaderBackgroundColor #D35400
+    HeaderFontColor #FFFFFF
+}
+skinparam package<<evidence>> {
+    BackGroundColor #F5EEF8
+    BorderColor #8E44AD
+    BorderThickness 1.5
+    HeaderBackgroundColor #8E44AD
+    HeaderFontColor #FFFFFF
+}
+skinparam package<<audit>> {
+    BackGroundColor #E6E6E6
+    BorderColor #7F8C8D
+    BorderThickness 1.5
+    HeaderBackgroundColor #7F8C8D
+    HeaderFontColor #FFFFFF
+}
+skinparam package<<analytics>> {
+    BackGroundColor #FDEDEC
+    BorderColor #C0392B
+    BorderThickness 1.5
+    HeaderBackgroundColor #C0392B
+    HeaderFontColor #FFFFFF
+}
+
+' Estilo para las relaciones
+skinparam arrow {
+    Color #7F8C8D
+    Thickness 1.5
+    FontColor #606F70
+    FontSize 12
+}
+
+' Estilo para la nota
+skinparam note {
+    BackGroundColor #FEF9E7
+    BorderColor #F1C40F
+    BorderThickness 1.0
+    FontColor #7D6608
+    FontSize 12
+}
+
+title <size:18><b>DER-03 — PostgreSQL físico: ownership por schema</b></size>
+
+database "PostgreSQL 16+" as DB {
+  package "iam (7 tablas)" as IAM <<iam>>
+  package "catalog (6 tablas)" as CAT <<catalog>>
+  package "inventory (15 tablas)" as INV <<inventory>>
+  package "evidence (2 tablas)" as EVI <<evidence>>
+  package "audit (3 tablas)" as AUD <<audit>>
+  package "analytics (7 tablas)" as ANA <<analytics>>
+}
+
+' --- RELACIONES DE EVENTOS (LÍNEAS PUNTEADAS) ---
+IAM ..> AUD : eventos IAM
+CAT ..> INV : Product/Unit/Supplier events
+CAT ..> ANA : Product events
+INV ..> AUD : Movement/Stock events
+INV ..> ANA : Movement/Stock events
+EVI ..> AUD : Evidence events
+
+' --- NOTA TÉCNICA ---
+note bottom
+<b>ACLARACIÓN TÉCNICA:</b>
+Las líneas punteadas representan flujos de eventos conceptuales.
+No hay FK cross-schema directas.
+---
+40 tablas físicas. Cada servicio escribe exclusivamente su schema.
+No hay FK ni SQL de escritura cross-schema.
+Los DER-04..09 contienen columnas, PK/FK locales e invariantes por bounded context.
+end note
+
+@enduml

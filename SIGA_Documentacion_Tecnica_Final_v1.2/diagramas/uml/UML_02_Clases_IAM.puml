@@ -1,0 +1,99 @@
+@startuml
+title UML-02 — Clases MS-IAM
+
+' --- Configuración visual ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+
+skinparam BackgroundColor #F8F9FA
+
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' --- Estilos base para clases ---
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #546E7A
+  BorderThickness 1.2
+  FontColor #263238
+  FontSize 13
+}
+
+class UserAccount {
+ UUID id
+ String username
+ String email
+ String passwordHash
+ boolean active
+ boolean mfaEnabled
+ String mfaSecretEncrypted
+ int failedLoginAttempts
+ Instant lockedUntil
+ long version
+}
+
+class Role {
+ UUID id
+ String code
+ String name
+ boolean active
+ long version
+}
+
+class Permission {
+ UUID id
+ String code
+ String description
+}
+
+class UserRole {
+ UUID userId
+ UUID roleId
+ Instant assignedAt
+}
+
+class RolePermission {
+ UUID roleId
+ UUID permissionId
+ Instant assignedAt
+}
+
+class RefreshSession {
+ UUID id
+ UUID userId
+ String tokenHash
+ UUID jti
+ UUID familyId
+ Instant expiresAt
+ Instant revokedAt
+ UUID replacedByJti
+}
+
+class IamOutboxEvent {
+ UUID id
+ String aggregateType
+ UUID aggregateId
+ String eventType
+ jsonb payload
+ OutboxState status
+}
+
+UserAccount "1" -- "*" UserRole
+Role "1" -- "*" UserRole
+Role "1" -- "*" RolePermission
+Permission "1" -- "*" RolePermission
+UserAccount "1" -- "*" RefreshSession
+UserAccount ..> IamOutboxEvent : created/updated/disabled
+
+note right of UserAccount
+MFA y bloqueo permanecen en UserAccount para el MVP.
+No se persisten MfaSecret/LoginAttempt como agregados separados;
+eventos relevantes se auditan fuera del schema IAM.
+end note
+@enduml

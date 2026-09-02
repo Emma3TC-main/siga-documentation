@@ -1,0 +1,93 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/datos/DER_01_Conceptual (Original).puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+title DER-01 — Modelo conceptual global SIGA
+
+package "IAM" {
+  entity USUARIO
+  entity ROL
+  entity PERMISO
+  entity SESION_REFRESH
+}
+package "CATÁLOGO" {
+  entity CATEGORIA
+  entity PRODUCTO
+  entity UNIDAD_MEDIDA
+  entity CONVERSION_UNIDAD
+}
+package "INVENTARIO" {
+  entity PRODUCTO_REF
+  entity UBICACION
+  entity LOTE
+  entity ACTIVO
+  entity EXISTENCIA
+  entity MOVIMIENTO
+  entity DETALLE_MOVIMIENTO
+  entity AUTORIZACION
+  entity CONTEO_FISICO
+  entity DETALLE_CONTEO
+}
+package "EVIDENCIA" { entity EVIDENCIA }
+package "AUDITORÍA / NOTIFICACIÓN" { entity AUDITORIA; entity NOTIFICACION }
+package "REPORTING / ANALYTICS" {
+  entity PROYECCION_PRODUCTO
+  entity PROYECCION_INVENTARIO
+  entity PROYECCION_MOVIMIENTO
+  entity KPI
+  entity REPORTE
+}
+
+USUARIO }o--o{ ROL
+ROL }o--o{ PERMISO
+USUARIO ||--o{ SESION_REFRESH
+
+CATEGORIA ||--o{ PRODUCTO
+UNIDAD_MEDIDA ||--o{ PRODUCTO : almacenamiento/base
+PRODUCTO ||--o{ CONVERSION_UNIDAD
+UNIDAD_MEDIDA ||--o{ CONVERSION_UNIDAD
+
+PRODUCTO ..> PRODUCTO_REF : evento/proyección
+PRODUCTO_REF ||--o{ LOTE
+PRODUCTO_REF ||--o{ ACTIVO
+PRODUCTO_REF ||--o{ EXISTENCIA
+UBICACION ||--o{ UBICACION : jerarquía
+UBICACION ||--o{ EXISTENCIA
+LOTE ||--o{ EXISTENCIA
+ACTIVO ||--o{ EXISTENCIA
+MOVIMIENTO ||--|{ DETALLE_MOVIMIENTO
+PRODUCTO_REF ||--o{ DETALLE_MOVIMIENTO
+MOVIMIENTO ||--o{ AUTORIZACION
+CONTEO_FISICO ||--|{ DETALLE_CONTEO
+UBICACION ||--o{ CONTEO_FISICO
+
+USUARIO ..> MOVIMIENTO : registra/solicita
+USUARIO ..> AUTORIZACION : autoriza
+USUARIO ..> EVIDENCIA : carga
+USUARIO ..> AUDITORIA : actor
+USUARIO ..> NOTIFICACION : recibe
+MOVIMIENTO ..> EVIDENCIA : owner UUID
+ACTIVO ..> EVIDENCIA : owner UUID
+REPORTE ..> EVIDENCIA : owner UUID
+
+PRODUCTO ..> PROYECCION_PRODUCTO : evento
+EXISTENCIA ..> PROYECCION_INVENTARIO : evento
+MOVIMIENTO ..> PROYECCION_MOVIMIENTO : evento
+PROYECCION_INVENTARIO ..> KPI
+PROYECCION_MOVIMIENTO ..> KPI
+KPI ..> REPORTE
+
+note bottom
+Las líneas punteadas entre bounded contexts son relaciones semánticas/eventuales.
+No representan FK PostgreSQL cross-schema.
+Outbox, idempotency y processed_event son conceptos técnicos y se muestran en DER lógicos/físicos.
+end note
+@enduml

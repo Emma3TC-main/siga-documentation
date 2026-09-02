@@ -1,0 +1,31 @@
+@startuml
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #4B5563
+skinparam BorderColor #374151
+skinparam BackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF7D6
+skinparam NoteBorderColor #A16207
+
+title BPMN-06 — Gestión de evidencia digital
+|Usuario|
+start
+:Seleccionar/tomar PDF o imagen;
+|Cliente|
+:Prevalidar tamaño/formato y mostrar preview;
+|Evidence Service|
+:Autorizar acceso;
+:Validar MIME, magic bytes, tamaño y hash;
+if (Válida?) then (sí)
+ |Object Storage|
+ :Guardar objeto privado/versionado;
+ |Evidence Service|
+ :Persistir metadata/asociación;
+ :Emitir EvidenceUploaded;
+else (no)
+ :Rechazar y devolver Problem Details;
+endif
+stop
+@enduml

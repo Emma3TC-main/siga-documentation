@@ -1,0 +1,157 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/estados/STATE_02_Activo.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+
+' ============================================================
+' ESTILOS GENERALES — STATE DIAGRAM SIGA
+' ============================================================
+
+!theme plain
+
+' --- Renderizado y geometría general ---
+skinparam dpi 300
+skinparam shadowing false
+skinparam roundcorner 10
+skinparam padding 6
+skinparam nodesep 55
+skinparam ranksep 45
+
+' --- Tipografía general ---
+skinparam defaultFontName "Inter", "Segoe UI", "Helvetica", Arial, sans-serif
+skinparam defaultFontSize 12
+skinparam defaultFontColor #1E293B
+
+' --- Fondo ---
+skinparam BackgroundColor #FFFFFF
+
+' ============================================================
+' TÍTULO
+' ============================================================
+
+skinparam title {
+    FontSize 15
+    FontStyle bold
+    FontColor #0F172A
+    BorderColor transparent
+    BackgroundColor transparent
+}
+
+' ============================================================
+' TRANSICIONES / FLECHAS
+' ============================================================
+
+skinparam ArrowColor #64748B
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 11
+skinparam ArrowThickness 1.2
+
+' ============================================================
+' ESTADOS — ESTILO BASE
+' ============================================================
+
+skinparam state {
+    BackgroundColor #F8FAFC
+    BorderColor #94A3B8
+    BorderThickness 1.5
+    FontColor #0F172A
+    FontSize 12
+    FontStyle bold
+
+    StartColor #0EA5E9
+    EndColor #64748B
+}
+
+' ============================================================
+' ESTADOS — PALETA SEMÁNTICA
+' ============================================================
+
+' Estado inicial / borrador
+skinparam state<<draft>> {
+    BackgroundColor #EFF6FF
+    BorderColor #3B82F6
+    FontColor #1D4ED8
+}
+
+' Estado pendiente / espera
+skinparam state<<pending>> {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontColor #B45309
+}
+
+' Estado autorizado / validado
+skinparam state<<authorized>> {
+    BackgroundColor #EEF2FF
+    BorderColor #6366F1
+    FontColor #4338CA
+}
+
+' Estado exitoso / confirmado
+skinparam state<<success>> {
+    BackgroundColor #ECFDF5
+    BorderColor #10B981
+    FontColor #047857
+}
+
+' Estado cancelado / neutral
+skinparam state<<cancelled>> {
+    BackgroundColor #F1F5F9
+    BorderColor #94A3B8
+    FontColor #64748B
+}
+
+' Estado rechazado / error
+skinparam state<<rejected>> {
+    BackgroundColor #FEF2F2
+    BorderColor #EF4444
+    FontColor #B91C1C
+}
+
+' ============================================================
+' NOTAS
+' ============================================================
+
+skinparam Note {
+    BackgroundColor #FEFCE8
+    BorderColor #FACC15
+    BorderThickness 1
+    FontColor #713F12
+    FontSize 11
+    RoundCorner 8
+}
+
+' ============================================================
+' LÓGICA DEL DIAGRAMA
+' ============================================================
+
+title STATE-02 — Estados de maquinaria / activo serializado
+
+' Asignación de estereotipos para paleta de colores
+state OPERATIVO <<success>>
+state EN_MANTENIMIENTO <<pending>>
+state EN_TRANSITO <<draft>>
+state INOPERATIVO <<rejected>>
+state FUERA_SERVICIO <<cancelled>>
+
+[*] --> OPERATIVO
+OPERATIVO --> EN_MANTENIMIENTO : enviar a mantenimiento
+EN_MANTENIMIENTO --> OPERATIVO : liberar
+OPERATIVO --> EN_TRANSITO : transferencia/despacho
+EN_TRANSITO --> OPERATIVO : recepción
+OPERATIVO --> INOPERATIVO : falla/inspección
+INOPERATIVO --> EN_MANTENIMIENTO : intervención
+INOPERATIVO --> FUERA_SERVICIO : baja autorizada
+EN_MANTENIMIENTO --> FUERA_SERVICIO : baja técnica
+FUERA_SERVICIO --> [*]
+
+note right
+Los estados describen disponibilidad operativa del activo.
+Los cambios relevantes se auditan y se relacionan con movimientos/ubicaciones.
+end note
+
+@enduml

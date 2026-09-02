@@ -1,0 +1,86 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/uml/UML_05_Clases_Evidence.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+title UML-05 — Clases MS-EVI
+
+' --- Configuración visual ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+
+skinparam BackgroundColor #F8F9FA
+
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' --- Estilos base para clases ---
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #546E7A
+  BorderThickness 1.2
+  FontColor #263238
+  FontSize 13
+}
+
+enum EvidenceOwnerType {
+ MOVEMENT
+ ASSET
+ ADJUSTMENT
+ REPORT
+}
+
+class EvidenceMetadata {
+ UUID id
+ EvidenceOwnerType ownerType
+ UUID ownerId
+ String objectKey
+ String originalFilename
+ String contentType
+ long sizeBytes
+ String sha256
+ StorageProvider storageProvider
+ UUID uploadedByUserId
+ EvidenceState status
+ jsonb metadata
+ Instant uploadedAt
+}
+
+interface ObjectStoragePort {
+ store()
+ read()
+ delete()
+ signedUrl()
+}
+
+class MinioStorageAdapter
+class GcsStorageAdapter
+
+class EvidenceOutboxEvent {
+ UUID id
+ String eventType
+ UUID aggregateId
+ jsonb payload
+ OutboxState status
+}
+
+ObjectStoragePort <|.. MinioStorageAdapter
+ObjectStoragePort <|.. GcsStorageAdapter
+EvidenceMetadata ..> ObjectStoragePort
+EvidenceMetadata ..> EvidenceOutboxEvent : EvidenceUploaded
+
+note right of EvidenceMetadata
+ownerId es referencia UUID externa sin FK cross-schema.
+El binario vive en object storage privado; 
+PostgreSQL conserva integridad y metadata.
+end note
+@enduml

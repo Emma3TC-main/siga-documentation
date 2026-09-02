@@ -1,0 +1,26 @@
+@startuml
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #4B5563
+skinparam BorderColor #374151
+skinparam BackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF7D6
+skinparam NoteBorderColor #A16207
+
+title BPMN-03 — Proceso de negocio: Transferencia interna
+|Encargado|
+start
+:Seleccionar producto/lote/activo;
+:Seleccionar ubicación origen y destino;
+:Indicar cantidad y motivo;
+|SIGA|
+:Validar origen != destino y stock suficiente;
+:Bloquear saldos origen/destino en orden;
+:Restar origen y sumar destino en una transacción;
+:Registrar movimiento y trazabilidad;
+|Encargado|
+:Confirmar nueva ubicación física;
+stop
+@enduml

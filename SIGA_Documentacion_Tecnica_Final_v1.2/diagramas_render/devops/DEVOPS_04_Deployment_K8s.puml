@@ -1,0 +1,194 @@
+@startuml DEVOPS_04_Deployment_GKE
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/devops/DEVOPS_04_Deployment_K8s.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+
+' ============================================================
+' CONFIGURACIÓN VISUAL
+' La lógica y el contenido se mantienen según la fuente de verdad.
+' ============================================================
+
+!theme plain
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+skinparam defaultFontColor #1E293B
+skinparam dpi 300
+skinparam padding 8
+
+top to bottom direction
+
+skinparam BackgroundColor #F8FAFC
+
+' ============================================================
+' FLECHAS Y RELACIONES
+' ============================================================
+
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' CONTENEDOR KUBERNETES / GKE
+' ============================================================
+
+skinparam cloud {
+    BackgroundColor #EEF2FF
+    BorderColor #4F46E5
+    BorderThickness 1.5
+    FontColor #3730A3
+    FontStyle bold
+    FontSize 13
+}
+
+' ============================================================
+' RECTÁNGULOS / SERVICIOS
+' ============================================================
+
+skinparam rectangle {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #1E40AF
+}
+
+' ============================================================
+' COLAS / MENSAJERÍA
+' ============================================================
+
+skinparam queue {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    BorderThickness 1.2
+    FontColor #92400E
+}
+
+' ============================================================
+' BASES DE DATOS
+' ============================================================
+
+skinparam database {
+    BackgroundColor #ECFEFF
+    BorderColor #0891B2
+    BorderThickness 1.2
+    FontColor #155E75
+}
+
+' ============================================================
+' NOTAS
+' ============================================================
+
+skinparam NoteBackgroundColor #EFF6FF
+skinparam NoteBorderColor #3B82F6
+skinparam NoteFontColor #1E3A8A
+skinparam NoteRoundCorner 10
+skinparam NoteFontSize 11
+
+' ============================================================
+' ESTILOS ESPECÍFICOS
+' ============================================================
+
+<style>
+
+rectangle {
+
+    .ingress {
+        BackgroundColor #F1F5F9
+        LineColor #475569
+        FontColor #1E293B
+    }
+
+    .gateway {
+        BackgroundColor #EFF6FF
+        LineColor #2563EB
+        FontColor #1E40AF
+    }
+
+    .service {
+        BackgroundColor #ECFDF5
+        LineColor #059669
+        FontColor #065F46
+    }
+
+    .obs {
+        BackgroundColor #F5F3FF
+        LineColor #7C3AED
+        FontColor #5B21B6
+    }
+}
+
+</style>
+
+' ============================================================
+' TÍTULO
+' ============================================================
+
+title
+<b><size:16><color:#1E293B>DEVOPS-04 — Deployment objetivo GKE</color></size></b>
+<size:11><color:#64748B>Evolución de la infraestructura hacia Kubernetes</color></size>
+end title
+
+' ============================================================
+' ARQUITECTURA DE DESPLIEGUE
+' ============================================================
+
+cloud "<b>GKE</b>\n<size:10><color:#4F46E5>Kubernetes Cluster</color></size>" {
+
+    rectangle "<b>Ingress</b>\n<size:10><color:#475569><&globe> Entrada HTTP/HTTPS</color></size>" as ING <<ingress>>
+
+    rectangle "<b>Gateway Deployment</b>\n<size:10><color:#2563EB><&transfer> API Gateway</color></size>" as GW <<gateway>>
+
+    rectangle "<b>Service Deployments + HPA</b>\n<size:10><color:#059669><&layers> Servicios escalables</color></size>" as SVC <<service>>
+
+    queue "<b>RabbitMQ StatefulSet</b>\n<size:10><color:#92400E><&envelope-closed> Message Broker</color></size>" as RMQ
+
+    rectangle "<b>Observability</b>\n<size:10><color:#5B21B6><&dashboard> Métricas & Logs</color></size>" as OBS <<obs>>
+}
+
+database "<b>Cloud SQL</b>\n<size:10><color:#155E75><&hard-drive> PostgreSQL Gestionado</color></size>" as SQL
+
+database "<b>Memorystore</b>\n<size:10><color:#155E75><&bolt> Redis Gestionado</color></size>" as REDIS
+
+cloud "<b>GCS</b>\n<size:10><color:#3730A3><&cloud> Google Cloud Storage</color></size>" as GCS
+
+cloud "<b>Secret Manager</b>\n<size:10><color:#3730A3><&key> Secretos</color></size>" as SM
+
+' ============================================================
+' RELACIONES — FUENTE DE VERDAD
+' ============================================================
+
+ING --> GW
+
+GW --> SVC
+
+SVC --> SQL
+
+SVC --> REDIS
+
+SVC --> RMQ
+
+SVC --> GCS
+
+OBS ..> SVC
+
+SM ..> SVC
+
+' ============================================================
+' NOTA — FUENTE DE VERDAD
+' ============================================================
+
+note bottom
+  Kubernetes es evolución. Cada servicio:
+  Deployment, Service, ConfigMap/Secret reference,
+  requests/limits, liveness/readiness y RollingUpdate.
+end note
+
+@enduml

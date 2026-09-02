@@ -1,0 +1,65 @@
+@startuml
+title UML-08 — Paquetes Web React (Clean Architecture + feature-first)
+
+' --- Configuración visual (Skinparams) ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+skinparam BackgroundColor #F8F9FA
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' Estilos base para paquetes
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #1976D2
+  BorderThickness 1.5
+  FontColor #0D47A1
+  FontSize 14
+  StereotypeFontColor #37474F
+  StereotypeFontSize 11
+}
+
+' --- Definición de paquetes con estereotipos (iconos) y colores por capa ---
+package "features/<feature>/presentation" as PRES << (R, #A5D6A7) UI >> #F1F8E9
+package "features/<feature>/application" as APP << (A, #90CAF9) Application >> #E3F2FD
+package "features/<feature>/domain" as DOM << (D, #FFE082) Domain >> #FFF8E1
+package "features/<feature>/infrastructure" as INF << (I, #CE93D8) Infra >> #F3E5F5
+
+package "shared/ui" as UI << (R, #A5D6A7) UI >> #F1F8E9
+package "shared/http" as HTTP << (I, #CE93D8) Infra >> #F3E5F5
+package "generated/openapi" as GEN << (I, #CE93D8) Infra >> #F3E5F5
+
+' --- Relaciones ---
+PRES --> APP
+PRES --> UI
+APP --> DOM
+INF ..> DOM : repository implementations
+INF --> HTTP
+INF --> GEN
+
+' --- Notas ---
+note bottom
+TanStack Query administra server state; 
+Zustand solo estado UI/global no autoritativo.
+DTO generado se mapea a modelo de dominio cuando sea necesario.
+end note
+
+' --- Leyenda ---
+legend right
+  **Leyenda de Arquitectura (Clean/Feature-first)**
+  ----
+  <color:#A5D6A7>■</color> **Presentation / UI**: Componentes, hooks de vista.
+  <color:#90CAF9>■</color> **Application**: Orquestación y estado servidor (TanStack).
+  <color:#FFE082>■</color> **Domain**: Entidades, tipos y lógica pura.
+  <color:#CE93D8>■</color> **Infrastructure**: APIs, clientes HTTP, repositorios.
+  ----
+  **-->** Dependencia directa (Hacia adentro/Shared).
+  **..>** Inversión de dependencias (Implementación).
+endlegend
+
+@enduml

@@ -1,0 +1,82 @@
+@startuml
+title SEQ-07 — Salida sensible + autorización + step-up MFA
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam actor {
+  BackgroundColor<<User>> #FDEDEC
+  BorderColor<<User>> #E74C3C
+  FontColor<<User>> #C0392B
+}
+skinparam participant {
+  BackgroundColor<<Client>> #EAFAF1
+  BorderColor<<Client>> #2ECC71
+  FontColor<<Client>> #27AE60
+
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+}
+skinparam database {
+  BackgroundColor<<RDBMS>> #F4ECF7
+  BorderColor<<RDBMS>> #9B59B6
+  FontColor<<RDBMS>> #8E44AD
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+actor "<size:18><&person></size>\nEncargado" as Encargado <<User>>
+actor "<size:18><&person></size>\nAutorizador" as Autorizador <<User>>
+participant "<size:18><&browser></size>\nCliente" as Cliente <<Client>>
+participant "<size:18><&shield></size>\nMS-IAM" as IAM <<Microservice>>
+participant "<size:18><&cog></size>\nMS-INV" as INV <<Microservice>>
+database "<size:18><&hard-drive></size>\nPostgreSQL" as DB <<RDBMS>>
+
+' --- Lógica y Contenido Original ---
+Encargado -> INV : submit BORRADOR
+INV -> INV : evaluar sensibilidad
+INV -> DB : state=PENDIENTE_AUTORIZACION
+INV --> Encargado : pendiente
+Autorizador -> Cliente : abrir resumen
+Cliente -> IAM : step-up TOTP
+IAM --> Cliente : stepUpContext válido
+Cliente -> INV : POST /authorize + stepUpContext
+INV -> INV : permission MOVEMENT_AUTHORIZE + MFA reciente
+INV -> DB : guardar autorización + state=AUTORIZADO
+INV --> Autorizador : autorizado (sin stock effect)
+Encargado -> INV : POST /confirm
+INV -> DB : BEGIN + FOR UPDATE + revalidación completa
+INV -> DB : stock/costo/CONFIRMADO/outbox + COMMIT
+INV --> Encargado : confirmado
+@enduml

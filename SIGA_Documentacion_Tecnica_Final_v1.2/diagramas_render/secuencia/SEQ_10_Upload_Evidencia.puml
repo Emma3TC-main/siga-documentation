@@ -1,0 +1,109 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/secuencia/SEQ_10_Upload_Evidencia.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+title SEQ-10 — Upload de evidencia con owner genérico
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam actor {
+  BackgroundColor<<User>> #FDEDEC
+  BorderColor<<User>> #E74C3C
+  FontColor<<User>> #C0392B
+}
+skinparam participant {
+  BackgroundColor<<Client>> #EAFAF1
+  BorderColor<<Client>> #2ECC71
+  FontColor<<Client>> #27AE60
+
+  BackgroundColor<<Gateway>> #FEF9E7
+  BorderColor<<Gateway>> #F1C40F
+  FontColor<<Gateway>> #D4AC0D
+
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+  
+  ' Corrección: Los estilos de Storage se movieron a participant ya que "cloud" no es válido en secuencias
+  BackgroundColor<<Storage>> #E8F8F5
+  BorderColor<<Storage>> #1ABC9C
+  FontColor<<Storage>> #16A085
+}
+skinparam database {
+  BackgroundColor<<RDBMS>> #F4ECF7
+  BorderColor<<RDBMS>> #9B59B6
+  FontColor<<RDBMS>> #8E44AD
+}
+skinparam queue {
+  BackgroundColor<<Queue>> #FDEBD0
+  BorderColor<<Queue>> #E67E22
+  FontColor<<Queue>> #D35400
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+actor "<size:18><&person></size>\nUsuario" as Usuario <<User>>
+participant "<size:18><&phone></size>\nWeb/Mobile" as C <<Client>>
+participant "<size:18><&bolt></size>\nGateway" as Gateway <<Gateway>>
+participant "<size:18><&document></size>\nMS-EVI" as EVI <<Microservice>>
+database "<size:18><&hard-drive></size>\nevidence schema" as DB <<RDBMS>>
+participant "<size:18><&cloud></size>\nMinIO/GCS" as OBJ <<Storage>>
+queue "<size:18><&envelope-closed></size>\nRabbitMQ" as RabbitMQ <<Queue>>
+
+' --- Lógica y Contenido Original ---
+Usuario -> C : seleccionar cámara/galería/PDF
+C -> C : prevalidar formato/tamaño + preview
+C -> Gateway : POST /api/v1/evidences\nownerType + ownerId + multipart
+Gateway -> EVI
+EVI -> EVI : permiso + validar ownerType + MIME/magic bytes/size + SHA-256
+EVI -> OBJ : store con objectKey interno
+OBJ --> EVI : object/version id
+EVI -> DB : BEGIN
+EVI -> DB : INSERT evidence_metadata(owner_type, owner_id,...)
+EVI -> DB : INSERT evidence.outbox_event(EvidenceUploaded)
+EVI -> DB : COMMIT
+EVI --> C : 201 EvidenceMetadata
+... publisher outbox ...
+EVI -> RabbitMQ : EvidenceUploaded
+
+note right of EVI
+Owner soportado: MOVEMENT, ASSET, ADJUSTMENT o REPORT.
+ownerId es UUID externo sin FK cross-schema.
+No se almacena BLOB en PostgreSQL.
+end note
+@enduml

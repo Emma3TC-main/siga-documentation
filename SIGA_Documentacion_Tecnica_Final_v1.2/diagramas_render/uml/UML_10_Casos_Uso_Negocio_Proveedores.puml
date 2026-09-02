@@ -1,0 +1,59 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/uml/UML_10_Casos_Uso_Negocio_Proveedores.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+' @DERIVADO_VISUAL_PROFILE_BEGIN
+' Perfil visual heredado de convenciones UML v1.1.
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+skinparam actor {
+  BackgroundColor #FDEDEC
+  BorderColor #E74C3C
+  FontColor #922B21
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #1976D2
+  FontColor #0D47A1
+  BorderThickness 1.5
+}
+skinparam rectangle {
+  BackgroundColor #FAFAFC
+  BorderColor #546E7A
+  FontColor #263238
+  BorderThickness 1.5
+}
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #FBC02D
+  FontColor #3E2723
+}
+' @DERIVADO_VISUAL_PROFILE_END
+title UML-10 — Impacto mínimo de Proveedores en Casos de Uso del Negocio
+actor "Proveedor externo" as Supplier
+actor "Encargado / Recepción" as Clerk
+rectangle "Negocio SIGA" {
+  usecase "CUN-01\nRecepcionar y almacenar" as CUN01
+}
+Supplier --> CUN01 : entrega recurso/documento
+Clerk --> CUN01 : recibe y registra
+note bottom
+Se mantienen los 7 CUN existentes.
+El Proveedor externo se incorpora únicamente como actor de CUN-01.
+El maestro de proveedores corresponde al CUS-31 del sistema,
+no a un nuevo Caso de Uso del Negocio.
+No se agrega portal de proveedor ni proceso integral de compras.
+end note
+@enduml

@@ -1,0 +1,123 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/uml/UML_03_Clases_Catalog.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+title UML-03 — Clases MS-CAT
+
+' --- Configuración visual ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+
+skinparam BackgroundColor #F8F9FA
+
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' --- Estilos base para clases ---
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #546E7A
+  BorderThickness 1.2
+  FontColor #263238
+  FontSize 13
+}
+
+class Category {
+ UUID id
+ String code
+ String name
+ CategoryType categoryType
+ boolean active
+ long version
+}
+
+class Supplier {
+ UUID id
+ String code
+ String taxId
+ String businessName
+ String tradeName
+ String contactName
+ String phone
+ String email
+ String address
+ boolean active
+ long version
+}
+
+class Product {
+ UUID id
+ String sku
+ String name
+ ProductType productType
+ UUID categoryId
+ UUID storageUnitId
+ UUID baseUnitId
+ decimal minStock
+ boolean requiresLot
+ boolean requiresHeatNumber
+ boolean requiresSerial
+ boolean requiresExpiry
+ jsonb technicalAttributes
+ boolean active
+ long version
+}
+
+class UnitOfMeasure {
+ UUID id
+ String code
+ String name
+ String symbol
+ String dimension
+ boolean active
+ long version
+}
+
+class UnitConversion {
+ UUID id
+ UUID productId
+ UUID fromUnitId
+ UUID toUnitId
+ decimal factor
+ boolean active
+ long version
+}
+
+class CatalogOutboxEvent {
+ UUID id
+ String eventType
+ UUID aggregateId
+ jsonb payload
+ OutboxState status
+}
+
+Category "1" -- "*" Product
+UnitOfMeasure "1" -- "*" Product : storage/base
+Product "1" -- "*" UnitConversion
+UnitOfMeasure "1" -- "*" UnitConversion : from
+UnitOfMeasure "1" -- "*" UnitConversion : to
+Supplier ..> CatalogOutboxEvent : SupplierCreated/Updated/Disabled
+Product ..> CatalogOutboxEvent : ProductCreated/Updated
+UnitConversion ..> CatalogOutboxEvent : ProductUpdated
+
+note right of Supplier
+Proveedor es maestro básico de catálogo.
+No modela OC, cotizaciones ni cuentas por pagar.
+end note
+
+note right of UnitConversion
+Las conversiones son N por producto; 
+no existe un conversionFactor único en Product.
+JSONB queda reservado para especificaciones técnicas extensibles.
+end note
+@enduml

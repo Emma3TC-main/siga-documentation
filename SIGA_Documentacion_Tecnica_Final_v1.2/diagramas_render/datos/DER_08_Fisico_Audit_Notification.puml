@@ -1,0 +1,45 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/datos/DER_08_Fisico_Audit_Notification.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam defaultFontName Arial
+hide methods
+title DER-08 — Físico Audit / Notification
+entity "audit.audit_event" as t_audit_event {
+ id : uuid <<PK>>
+ event_type : varchar(120) <<NN>>
+ actor_id : uuid
+ aggregate_type : varchar(80)
+ aggregate_id : uuid
+ action : varchar(120) <<NN>>
+ result : varchar(30) <<NN>>
+ correlation_id : uuid
+ details : jsonb <<NN>>
+ occurred_at : timestamptz <<NN>>
+}
+entity "audit.notification" as t_notification {
+ id : uuid <<PK>>
+ user_id : uuid <<NN>>
+ type : varchar(80) <<NN>>
+ title : varchar(160) <<NN>>
+ message : text <<NN>>
+ reference_type : varchar(80)
+ reference_id : uuid
+ read_at : timestamptz
+ created_at : timestamptz <<NN>>
+}
+entity "audit.processed_event" as t_processed_event {
+ event_id : uuid <<NN>>
+ consumer : varchar(120) <<NN>>
+ processed_at : timestamptz <<NN>>
+}
+note bottom
+UUID hacia otro bounded context se documenta como referencia externa sin FK cross-schema.
+end note
+@enduml

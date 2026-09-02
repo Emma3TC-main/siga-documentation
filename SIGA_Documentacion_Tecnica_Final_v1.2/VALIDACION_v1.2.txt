@@ -1,0 +1,29 @@
+SIGA v1.2 — Validación estática del delta Proveedores
+
+SQL físico:
+- CREATE TABLE: 40
+- Distribución: {'iam': 7, 'catalog': 6, 'inventory': 15, 'evidence': 2, 'audit': 3, 'analytics': 7}
+- FK cross-schema detectadas: 0
+
+Diccionario:
+- Entidades documentadas: 40
+- Distribución: {'iam': 7, 'catalog': 6, 'inventory': 15, 'evidence': 2, 'audit': 3, 'analytics': 7}
+- SQL = diccionario: True
+
+OpenAPI YAML cargados correctamente:
+- audit-openapi.yaml: version=1.1.0, paths=3
+- catalog-openapi.yaml: version=1.2.0, paths=6
+- evidence-openapi.yaml: version=1.1.0, paths=2
+- identity-openapi.yaml: version=1.1.0, paths=9
+- inventory-openapi.yaml: version=1.2.0, paths=12
+- reporting-openapi.yaml: version=1.1.0, paths=4
+
+PlantUML (validación estructural local):
+- Archivos .puml: 61
+- @startuml/@enduml inválidos: 0
+- Nota: no se dispuso de PlantUML local para render gráfico automático; los archivos modificados conservan la sintaxis/estilo del proyecto y se revisaron estructuralmente.
+
+Artefactos deliberadamente no regenerados:
+- Manual_Tecnico_SIGA_Final.docx (se conserva maquetación v1.1; usar fuente Markdown + CAMBIOS_DOCX_PARA_APLICAR.md)
+- DER_02_L#U00f3gico (dbDiagram).svg (export v1.1; regenerar desde DBML actualizado si se usa)
+- REPORTE_CORRECCION_INTEGRAL.md es histórico v1.1 y por eso conserva la cifra 38.

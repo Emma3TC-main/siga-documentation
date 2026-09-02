@@ -1,0 +1,39 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/bpmn/BPMN_05_Autorizacion_Sensible.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #4B5563
+skinparam BorderColor #374151
+skinparam BackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF7D6
+skinparam NoteBorderColor #A16207
+
+title BPMN-05 — Autorización de movimiento sensible
+|SIGA|
+start
+:Evaluar política de sensibilidad;
+if (Requiere autorización?) then (sí)
+ :PENDIENTE_AUTORIZACION;
+ |Autorizador|
+ :Consultar movimiento y evidencia;
+ :Completar step-up TOTP;
+ if (Decisión?) then (aprobar)
+  |SIGA|
+  :AUTORIZADO (sin afectar stock);
+  :En confirmación revalidar todo;
+ else (rechazar)
+  :RECHAZADO;
+ endif
+else (no)
+ :Puede pasar a confirmación ordinaria;
+endif
+stop
+@enduml

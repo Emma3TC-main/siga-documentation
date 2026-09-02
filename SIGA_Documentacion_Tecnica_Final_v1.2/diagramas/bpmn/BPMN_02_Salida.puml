@@ -1,0 +1,40 @@
+@startuml
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #4B5563
+skinparam BorderColor #374151
+skinparam BackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF7D6
+skinparam NoteBorderColor #A16207
+
+title BPMN-02 — Proceso de negocio: Salida / despacho
+|Solicitante|
+start
+:Solicitar recurso;
+|Encargado|
+:Registrar producto, cantidad, ubicación, lote/serie, centro de costo y sustento;
+|SIGA|
+:Validar existencia y sensibilidad;
+if (Stock suficiente?) then (sí)
+ if (Movimiento sensible?) then (sí)
+  |Autorizador|
+  :Revisar resumen y realizar step-up;
+  if (Aprueba?) then (sí)
+   |SIGA|
+   :Marcar AUTORIZADO;
+  else (no)
+   :Marcar RECHAZADO;
+   stop
+  endif
+ endif
+ :Confirmar bajo FOR UPDATE y revalidación;
+ :Descontar stock + costo + movimiento + outbox;
+else (no)
+ :Rechazar sin cambiar stock;
+endif
+|Encargado|
+:Entregar / comunicar resultado;
+stop
+@enduml

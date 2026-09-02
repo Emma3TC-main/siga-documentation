@@ -1,0 +1,133 @@
+@startuml
+' ============================================================
+' CONFIGURACIÓN VISUAL GENERAL Y ARQUITECTÓNICA
+' ============================================================
+!theme plain
+
+' Diseño jerárquico de arriba hacia abajo para arquitectura en capas (Hexagonal/Limpia)
+top to bottom direction
+skinparam linetype ortho
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", "Helvetica Neue", Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam dpi 300
+skinparam padding 12
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam textalignment center
+
+skinparam BackgroundColor #FFFFFF
+
+' ============================================================
+' ESTILOS DE LÍNEAS Y FLECHAS
+' ============================================================
+skinparam ArrowColor #64748B
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #475569
+skinparam ArrowFontSize 12
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' ESTILOS DE COMPONENTES POR TIPO (ESTEREOTIPOS VISUALES)
+' ============================================================
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  BorderThickness 1.5   
+  FontColor #0F172A
+}
+
+skinparam rectangle<<Gateway>> {
+  BackgroundColor #FDF2F8
+  BorderColor #DB2777
+}
+
+skinparam rectangle<<PrimaryAdapter>> {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+}
+
+skinparam rectangle<<UseCase>> {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+  BorderThickness 2
+}
+
+skinparam rectangle<<Domain>> {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+  BorderThickness 2
+}
+
+skinparam rectangle<<SecondaryAdapter>> {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+}
+
+skinparam database {
+  BackgroundColor #FFFBEB
+  BorderColor #D97706
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam queue {
+  BackgroundColor #FAF5FF
+  BorderColor #9333EA
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #EAB308
+  FontColor #713F12
+  FontSize 12
+}
+
+' ============================================================
+' DIAGRAMA (CONTENIDO INMUTABLE)
+' ============================================================
+title <size:18><color:#0F172A><b>C4-04 — Componentes internos de MS-INV (Inventory Core)</b></color></size>
+
+rectangle "API Gateway" as GW <<Gateway>>
+
+' Componentes (Con estereotipos visuales aplicados para diferenciar capas de Arquitectura Hexagonal)
+rectangle "REST Controllers" as REST <<PrimaryAdapter>>
+rectangle "Application Use Cases\nCreate/Submit/Authorize/Confirm/Reject\nTransfer/Adjust/Count" as APP <<UseCase>>
+rectangle "Domain\nMovement, StockBalance, Location, Lot, Asset\nSupplierReference + ProductReference + UnitConversionReference\nPolicies + state machine" as DOM <<Domain>>
+rectangle "Persistence Adapters\nJPA/SQL/Flyway" as PERS <<SecondaryAdapter>>
+rectangle "Idempotency Adapter" as IDEM <<SecondaryAdapter>>
+rectangle "Outbox Publisher" as OUT <<SecondaryAdapter>>
+rectangle "Catalog Projection Consumer" as PROJ <<PrimaryAdapter>>
+rectangle "Security Adapter\npermissions/step-up context" as SEC <<SecondaryAdapter>>
+
+database "inventory schema" as DB
+queue "RabbitMQ" as RMQ
+
+' --- RELACIONES ---
+GW --> REST
+REST --> APP
+APP --> DOM
+APP --> IDEM
+APP --> PERS
+DOM --> PERS : repository ports
+PERS --> DB
+IDEM --> DB
+APP --> SEC
+APP --> DB : transacción local\nvia adapters
+APP --> DB : INSERT outbox en mismo commit
+OUT --> DB : lee outbox pendiente
+OUT --> RMQ : publisher confirm
+RMQ --> PROJ : Product/Unit/Supplier events
+PROJ --> DB : upsert supplier_ref/product_ref/conversion_ref + processed_event
+
+note right of APP
+Confirmación crítica:
+@Transactional + READ COMMITTED + SELECT ... FOR UPDATE
++ revalidación + constraints + outbox.
+end note
+
+@enduml

@@ -1,0 +1,222 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/datos/DER_06_Fisico_Inventory.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam defaultFontName Arial
+hide methods
+title DER-06 — Físico Inventory Core
+entity "inventory.location" as t_location {
+ id : uuid <<PK>>
+ code : varchar(80) <<NN,UQ>>
+ name : varchar(160) <<NN>>
+ location_type : varchar(30) <<NN>>
+ parent_id : uuid
+ active : boolean <<NN>>
+ version : bigint <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "inventory.supplier_ref" as t_supplier_ref {
+ supplier_id : uuid <<PK>>
+ code : varchar(50) <<NN,UQ>>
+ tax_id : varchar(20) <<NN,UQ>>
+ business_name : varchar(200) <<NN>>
+ active : boolean <<NN>>
+ source_version : bigint <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "inventory.product_ref" as t_product_ref {
+ product_id : uuid <<PK>>
+ sku : varchar(80) <<NN,UQ>>
+ product_type : varchar(40) <<NN>>
+ storage_unit_code : varchar(20) <<NN>>
+ base_unit_code : varchar(20) <<NN>>
+ min_stock : numeric(18,6) <<NN>>
+ requires_lot : boolean <<NN>>
+ requires_heat_number : boolean <<NN>>
+ requires_serial : boolean <<NN>>
+ requires_expiry : boolean <<NN>>
+ active : boolean <<NN>>
+ source_version : bigint <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "inventory.product_unit_conversion_ref" as t_product_unit_conversion_ref {
+ product_id : uuid <<NN>>
+ from_unit_code : varchar(20) <<NN>>
+ to_unit_code : varchar(20) <<NN>>
+ factor : numeric(18,6) <<NN>>
+ active : boolean <<NN>>
+ source_version : bigint <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "inventory.lot" as t_lot {
+ id : uuid <<PK>>
+ product_id : uuid <<NN>>
+ lot_number : varchar(120)
+ heat_number : varchar(120)
+ manufactured_at : date
+ received_at : date
+ expires_at : date
+ status : varchar(30) <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "inventory.asset" as t_asset {
+ id : uuid <<PK>>
+ product_id : uuid <<NN>>
+ asset_code : varchar(80) <<NN,UQ>>
+ serial_number : varchar(160) <<NN,UQ>>
+ brand : varchar(100)
+ model : varchar(100)
+ operational_status : varchar(40) <<NN>>
+ technical_snapshot : jsonb <<NN>>
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "inventory.stock_balance" as t_stock_balance {
+ id : uuid <<PK>>
+ product_id : uuid <<NN>>
+ location_id : uuid <<NN>>
+ lot_id : uuid
+ asset_id : uuid
+ quantity : numeric(18,6) <<NN>>
+ avg_cost_pen : numeric(18,6) <<NN>>
+ version : bigint <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "inventory.movement" as t_movement {
+ id : uuid <<PK>>
+ movement_code : varchar(80) <<NN,UQ>>
+ movement_type : varchar(30) <<NN>>
+ status : varchar(40) <<NN>>
+ registered_by_user_id : uuid <<NN>>
+ requested_by_user_id : uuid
+ cost_center_code : varchar(80)
+ cost_center_name_snapshot : varchar(160)
+ supplier_id : uuid
+ supplier_name_snapshot : varchar(200)
+ supplier_tax_id_snapshot : varchar(20)
+ reference_doc_type : varchar(40)
+ reference_doc_number : varchar(120)
+ reason : varchar(255)
+ notes : text
+ is_sensitive : boolean <<NN>>
+ sensitivity_reason : varchar(255)
+ created_at : timestamptz <<NN>>
+ submitted_at : timestamptz
+ confirmed_at : timestamptz
+ updated_at : timestamptz <<NN>>
+}
+entity "inventory.movement_detail" as t_movement_detail {
+ id : uuid <<PK>>
+ movement_id : uuid <<NN>>
+ line_number : integer <<NN>>
+ product_id : uuid <<NN>>
+ entered_quantity : numeric(18,6) <<NN>>
+ unit_code : varchar(20) <<NN>>
+ conversion_factor : numeric(18,6) <<NN>>
+ stock_quantity : numeric(18,6) <<NN>>
+ origin_location_id : uuid
+ destination_location_id : uuid
+ lot_id : uuid
+ asset_id : uuid
+ original_currency : char(3) <<NN>>
+ original_unit_cost : numeric(18,6)
+ exchange_rate : numeric(18,6)
+ exchange_rate_date : date
+ exchange_rate_source : varchar(40)
+ base_unit_cost_pen : numeric(18,6)
+ applied_avg_cost_pen : numeric(18,6)
+}
+entity "inventory.movement_authorization" as t_movement_authorization {
+ id : uuid <<PK>>
+ movement_id : uuid <<NN>>
+ requested_at : timestamptz <<NN>>
+ decided_at : timestamptz
+ authorized_by_user_id : uuid
+ decision : varchar(20)
+ step_up_verified : boolean <<NN>>
+ reason : varchar(255)
+}
+entity "inventory.physical_count" as t_physical_count {
+ id : uuid <<PK>>
+ location_id : uuid <<NN>>
+ status : varchar(30) <<NN>>
+ counted_by_user_id : uuid <<NN>>
+ notes : text
+ started_at : timestamptz <<NN>>
+ completed_at : timestamptz
+ created_at : timestamptz <<NN>>
+}
+entity "inventory.physical_count_line" as t_physical_count_line {
+ id : uuid <<PK>>
+ count_id : uuid <<NN>>
+ product_id : uuid <<NN>>
+ lot_id : uuid
+ asset_id : uuid
+ system_quantity : numeric(18,6) <<NN>>
+ counted_quantity : numeric(18,6) <<NN>>
+ difference_quantity : numeric(18,6)
+}
+entity "inventory.idempotency_record" as t_idempotency_record {
+ id : uuid <<PK>>
+ idempotency_key : uuid <<NN,UQ>>
+ request_hash : char(64) <<NN>>
+ resource_type : varchar(80) <<NN>>
+ resource_id : uuid
+ response_status : integer <<NN>>
+ response_body : jsonb
+ created_at : timestamptz <<NN>>
+ expires_at : timestamptz <<NN>>
+}
+entity "inventory.processed_event" as t_processed_event {
+ event_id : uuid <<NN>>
+ consumer : varchar(120) <<NN>>
+ processed_at : timestamptz <<NN>>
+}
+entity "inventory.outbox_event" as t_outbox_event {
+ id : uuid <<PK>>
+ aggregate_type : varchar(80) <<NN>>
+ aggregate_id : uuid <<NN>>
+ event_type : varchar(120) <<NN>>
+ schema_version : integer <<NN>>
+ correlation_id : uuid
+ causation_id : uuid
+ payload : jsonb <<NN>>
+ status : varchar(20) <<NN>>
+ attempts : integer <<NN>>
+ next_attempt_at : timestamptz
+ occurred_at : timestamptz <<NN>>
+ published_at : timestamptz
+}
+t_location ||--o{ t_location : parent_id
+t_product_ref ||--o{ t_product_unit_conversion_ref : product_id
+t_product_ref ||--o{ t_lot : product_id
+t_product_ref ||--o{ t_asset : product_id
+t_product_ref ||--o{ t_stock_balance : product_id
+t_location ||--o{ t_stock_balance : location_id
+t_lot ||--o{ t_stock_balance : lot_id, product_id
+t_asset ||--o{ t_stock_balance : asset_id, product_id
+t_supplier_ref |o--o{ t_movement : supplier_id
+t_movement ||--o{ t_movement_detail : movement_id
+t_product_ref ||--o{ t_movement_detail : product_id
+t_location ||--o{ t_movement_detail : origin_location_id
+t_location ||--o{ t_movement_detail : destination_location_id
+t_lot ||--o{ t_movement_detail : lot_id, product_id
+t_asset ||--o{ t_movement_detail : asset_id, product_id
+t_movement ||--o{ t_movement_authorization : movement_id
+t_location ||--o{ t_physical_count : location_id
+t_physical_count ||--o{ t_physical_count_line : count_id
+t_product_ref ||--o{ t_physical_count_line : product_id
+t_lot ||--o{ t_physical_count_line : lot_id, product_id
+t_asset ||--o{ t_physical_count_line : asset_id, product_id
+note bottom
+UUID hacia otro bounded context se documenta como referencia externa sin FK cross-schema.
+end note
+@enduml

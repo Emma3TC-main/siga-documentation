@@ -1,0 +1,41 @@
+@startuml
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam defaultFontName Arial
+hide methods
+title DER-07 — Físico Evidence
+entity "evidence.evidence_metadata" as t_evidence_metadata {
+ id : uuid <<PK>>
+ owner_type : varchar(30) <<NN>>
+ owner_id : uuid <<NN>>
+ object_key : varchar(500) <<NN,UQ>>
+ original_filename : varchar(255) <<NN>>
+ content_type : varchar(120) <<NN>>
+ size_bytes : bigint <<NN>>
+ sha256 : char(64) <<NN>>
+ storage_provider : varchar(30) <<NN>>
+ uploaded_by_user_id : uuid <<NN>>
+ status : varchar(30) <<NN>>
+ metadata : jsonb <<NN>>
+ uploaded_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
+entity "evidence.outbox_event" as t_outbox_event {
+ id : uuid <<PK>>
+ aggregate_type : varchar(80) <<NN>>
+ aggregate_id : uuid <<NN>>
+ event_type : varchar(120) <<NN>>
+ schema_version : integer <<NN>>
+ correlation_id : uuid
+ causation_id : uuid
+ payload : jsonb <<NN>>
+ status : varchar(20) <<NN>>
+ attempts : integer <<NN>>
+ next_attempt_at : timestamptz
+ occurred_at : timestamptz <<NN>>
+ published_at : timestamptz
+}
+note bottom
+UUID hacia otro bounded context se documenta como referencia externa sin FK cross-schema.
+end note
+@enduml

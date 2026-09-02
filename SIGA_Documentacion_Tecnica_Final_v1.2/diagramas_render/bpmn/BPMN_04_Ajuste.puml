@@ -1,0 +1,38 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/bpmn/BPMN_04_Ajuste.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #4B5563
+skinparam BorderColor #374151
+skinparam BackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF7D6
+skinparam NoteBorderColor #A16207
+
+title BPMN-04 — Proceso de negocio: Ajuste de inventario
+|Supervisor/Encargado|
+start
+:Realizar conteo/verificación;
+:Detectar diferencia;
+|SIGA|
+:Calcular diferencia esperada vs contada;
+|Supervisor|
+:Registrar motivo y evidencia;
+|SIGA|
+:Verificar permiso/autorización;
+if (Autorizado?) then (sí)
+ :Aplicar ajuste +/- atómico;
+ :Mantener movimiento original intacto;
+ :Registrar auditoría/outbox;
+else (no)
+ :No modificar stock;
+endif
+stop
+@enduml

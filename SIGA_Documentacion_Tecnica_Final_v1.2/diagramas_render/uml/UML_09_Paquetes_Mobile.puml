@@ -1,0 +1,72 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/uml/UML_09_Paquetes_Mobile.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+title UML-09 — Paquetes Mobile Expo
+
+' --- Configuración visual (Skinparams) ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+skinparam BackgroundColor #F8F9FA
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' Estilos base para paquetes
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #1976D2
+  BorderThickness 1.5
+  FontColor #0D47A1
+  FontSize 14
+  StereotypeFontColor #37474F
+  StereotypeFontSize 11
+}
+
+' --- Definición de paquetes con estereotipos (iconos) y colores por capa ---
+package "app/ (Expo Router)" as ROUTES << (R, #A5D6A7) UI >> #F1F8E9
+package "features/*/presentation" as PRES << (R, #A5D6A7) UI >> #F1F8E9
+package "features/*/application" as APP << (A, #90CAF9) Application >> #E3F2FD
+package "features/*/domain" as DOM << (D, #FFE082) Domain >> #FFF8E1
+package "features/*/infrastructure" as INF << (I, #CE93D8) Infra >> #F3E5F5
+
+package "shared/secure-storage" as SEC << (I, #CE93D8) Infra >> #F3E5F5
+package "shared/http" as HTTP << (I, #CE93D8) Infra >> #F3E5F5
+
+' --- Relaciones ---
+ROUTES --> PRES
+PRES --> APP
+APP --> DOM
+INF ..> DOM
+INF --> HTTP
+INF --> SEC
+
+' --- Notas ---
+note bottom
+Refresh token en Expo SecureStore. 
+No se encolan transacciones offline.
+La caché de lectura debe mostrar estado stale y nunca confirma stock.
+end note
+
+' --- Leyenda ---
+legend right
+  **Leyenda de Arquitectura (Clean/Feature-first)**
+  ----
+  <color:#A5D6A7>■</color> **Presentation / UI**: Componentes, rutas y vistas.
+  <color:#90CAF9>■</color> **Application**: Orquestación y estado local.
+  <color:#FFE082>■</color> **Domain**: Entidades, tipos y lógica pura.
+  <color:#CE93D8>■</color> **Infrastructure**: APIs, almacenamiento seguro, repositorios.
+  ----
+  **-->** Dependencia directa (Hacia adentro/Shared).
+  **..>** Inversión de dependencias (Implementación).
+endlegend
+
+@enduml

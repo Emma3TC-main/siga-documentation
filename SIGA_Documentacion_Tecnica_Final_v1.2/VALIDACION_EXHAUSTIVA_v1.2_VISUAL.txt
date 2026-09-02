@@ -1,0 +1,93 @@
+SIGA — VALIDACIÓN EXHAUSTIVA v1.2 / GOBERNANZA DE DIAGRAMAS
+Fecha de revisión: 2026-08-30
+Estado: APROBADA
+
+1. BASE v1.2 RECIBIDA
+- El paquete RAR v1.2 contiene 116 archivos.
+- Se comparó su inventario de nombres/tamaño/CRC con la copia ZIP v1.2 disponible: 116/116 rutas coinciden.
+- La única diferencia de metadatos entre esa ZIP previa y el RAR era Manual_Tecnico_SIGA_Final.docx.
+- El DOCX adjunto por el usuario coincide exactamente con la entrada del RAR: 120686 bytes, CRC32 1831835659.
+- Por tanto, la reconstrucción usada para la revisión representa el contenido actual del RAR v1.2.
+
+2. REGLA DE NO REGRESIÓN SOBRE v1.2
+- Diagramas canónicos: 61 archivos en diagramas/**/*.puml.
+- Los 61 hashes SHA-256 canónicos se capturaron antes de generar derivados.
+- Verificación final: 61/61 hashes canónicos permanecen idénticos.
+- No se trasladó semántica desde v1.1 hacia v1.2.
+- v1.1 se usó exclusivamente como referencia estética/fixes de render.
+
+3. COMPARACIÓN VISUAL v1.1 -> v1.2
+- PlantUML v1.1: 59.
+- PlantUML canónicos v1.2: 61.
+- Rutas comunes: 59.
+- Comunes textualmente idénticas: 46.
+- Comunes con cambios funcionales de Proveedores: 13.
+- Diferencias en fingerprint de skinparam/layout: 0.
+- Conclusión: los fixes visuales de v1.1 ya estaban preservados en todos los diagramas comunes de v1.2.
+- Los 2 diagramas nuevos de Proveedores (UML_10 y UML_11) reciben únicamente en su DERIVADO un perfil visual compatible con la familia UML v1.1.
+
+4. DERIVADOS VISUALES
+- Directorio: diagramas_render/**/*.puml.
+- Cantidad: 61.
+- Cada derivado declara explícitamente: RENDER ONLY / NO CANÓNICO.
+- Paridad: 61/61 derivados son equivalentes a su fuente canónica al retirar exclusivamente los bloques generados de presentación.
+- Los derivados no se editan manualmente.
+- Generador: tools/generar_derivados_visuales.py.
+- Validador: tools/validar_fuentes_y_derivados.py.
+
+5. GOBIERNO PARA PROGRAMADORES, AGENTES E IA
+- AGENTS.md establece que diagramas/**/*.puml es la única familia PlantUML válida para implementación/IA/RAG.
+- ADR-019 establece la separación fuente canónica / derivado visual.
+- diagramas/README_CANONICO.md identifica el árbol original como fuente funcional.
+- diagramas_render/README.md limita el árbol derivado a Word, informe, sustentación y PNG/SVG.
+- Si existe conflicto: el derivado nunca prevalece sobre el canónico.
+- Búsquedas automáticas, embeddings y contexto de agentes deben excluir diagramas_render/**.
+
+6. VALIDACIÓN ESTRUCTURAL PLANTUML
+- Canónicos con @startuml/@enduml válidos por estructura: 61/61.
+- Derivados con @startuml/@enduml válidos por estructura: 61/61.
+- Referencias remotas/!includeurl detectadas: 0.
+- No se dispuso de un compilador PlantUML local en el contenedor de revisión; por ello no se afirma compilación binaria de los 122 archivos.
+- El riesgo se acota porque los 59 diagramas comunes conservan exactamente el fingerprint visual de la versión usada como base de render y los derivados se validan por paridad textual con su canónico.
+
+7. MODELO DE DATOS Y PROVEEDORES
+- SQL: 40 tablas.
+- Distribución: IAM 7 / Catalog 6 / Inventory 15 / Evidence 2 / Audit 3 / Analytics 7.
+- FK cross-schema: 0.
+- Proveedores: catalog.supplier + inventory.supplier_ref + snapshots en movimiento.
+- El diccionario menciona las 40 tablas SQL.
+- Se conserva la frontera ACID de Inventory y no existe Supplier Service.
+
+8. OPENAPI / TRAZABILIDAD / ARQUITECTURA
+- OpenAPI: 6 YAML válidos.
+- Catalog e Inventory incluyen las operaciones necesarias de Proveedores.
+- RF-35 / US-35 / CUS-31 / CUN-01: sincronizados en la documentación técnica verificada.
+- Servicios definitivos: 6.
+- No se añadió un microservicio de Proveedores.
+
+9. DOCUMENTOS DOCX APORTADOS POR EL USUARIO
+- Informe Curso Integrador II(1).docx: contiene RF-35, CUS-31, Proveedor externo, Gestión de proveedores y la referencia a 31 casos de uso.
+- Manual_Administrativo_SIGA_Final(3).docx: contiene Proveedor externo, Gestión de proveedores, validación de proveedor activo y reglas/snapshot de trazabilidad.
+- Manual_Tecnico_SIGA_Final(2).docx: incorporaba la adenda de Proveedores, pero mantenía algunas referencias principales heredadas de v1.1.
+- En la copia técnica gobernada se sincronizaron de forma mínima esas referencias (versión, CUS-31, CUN-01, MS-CAT, bounded contexts, API/eventos y CUS-07), sin rediseñar la arquitectura ni alterar los diagramas canónicos.
+
+10. REVISIÓN VISUAL DEL MANUAL TÉCNICO SINCRONIZADO
+- Documento renderizado: 62 páginas.
+- Revisión visual completa: páginas 1 a 62.
+- Resultado: no se detectaron textos cortados, tablas fuera de margen, superposiciones, páginas rotas ni desbordes visibles.
+- La página adicional corresponde a la sincronización documental/adenda y no altera la estructura técnica.
+
+11. VALIDACIÓN AUTOMATIZADA FINAL
+[OK] 61 diagramas canónicos conservan SHA-256 de la base v1.2.
+[OK] 61 diagramas canónicos y 61 derivados; paridad exacta tras retirar bloques visuales.
+[OK] SQL: 40 tablas = IAM 7 / Catalog 6 / Inventory 15 / Evidence 2 / Audit 3 / Analytics 7.
+[OK] FK cross-schema: 0.
+[OK] Proveedor: catalog.supplier + inventory.supplier_ref + snapshots presentes.
+[OK] Diccionario: menciona las 40 tablas SQL.
+[OK] OpenAPI: 6 YAML válidos; Catalog/Inventory incluyen Proveedores.
+[OK] Trazabilidad: RF-35 / US-35 / CUS-31 / CUN-01 sincronizados.
+[OK] Arquitectura: 6 servicios; no existe Supplier Service.
+[OK] Gobierno IA/render: AGENTS.md + ADR-019 + README canónico/render presentes.
+
+CONCLUSIÓN
+APROBADO. La versión v1.2 permanece como fuente de verdad funcional. Los archivos de diagramas canónicos no fueron alterados por la optimización visual. La nueva familia diagramas_render/ es un derivado determinista para presentación y queda explícitamente excluida del contexto de implementación y de agentes/IA.

@@ -1,0 +1,76 @@
+@startuml
+title SEQ-14 — Exportación incremental / ETL de solo lectura
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam actor {
+  BackgroundColor<<User>> #FDEDEC
+  BorderColor<<User>> #E74C3C
+  FontColor<<User>> #C0392B
+}
+skinparam participant {
+  BackgroundColor<<Client>> #EAFAF1
+  BorderColor<<Client>> #2ECC71
+  FontColor<<Client>> #27AE60
+
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+}
+skinparam database {
+  BackgroundColor<<RDBMS>> #F4ECF7
+  BorderColor<<RDBMS>> #9B59B6
+  FontColor<<RDBMS>> #8E44AD
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+actor "<size:18><&bar-chart></size>\nETL / BI" as BI <<User>>
+participant "<size:18><&cog></size>\nMS-REP" as REP <<Microservice>>
+database "<size:18><&hard-drive></size>\nanalytics read models" as ADB <<RDBMS>>
+
+' --- Lógica y Contenido Original ---
+BI -> REP : GET /api/v1/analytics/exports?since=<checkpoint>
+REP -> REP : autenticar/autorizar integración
+REP -> ADB : leer product/inventory/movement projections
+REP -> ADB : leer/actualizar export_checkpoint
+ADB --> REP : dataset + next checkpoint
+REP --> BI : CSV/JSON + nextCheckpoint
+
+' Corrección: Anclamos la nota a los participantes para evitar errores de renderizado
+note over BI, ADB
+BI no recibe credenciales de escritura sobre Inventory.
+El checkpoint pertenece a Analytics y no altera el OLTP.
+end note
+@enduml

@@ -1,0 +1,47 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/bpmn/BPMN_01_Entrada.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #4B5563
+skinparam BorderColor #374151
+skinparam BackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF7D6
+skinparam NoteBorderColor #A16207
+
+title BPMN-01 — Proceso de negocio: Entrada / recepción con proveedor
+|Proveedor externo|
+start
+:Entregar material/repuesto/insumo/activo\ny documento de sustento;
+|Encargado / Recepción|
+:Recibir recurso y documento;
+:Identificar producto;
+if (¿Abastecimiento externo?) then (sí)
+ :Seleccionar proveedor;
+else (no)
+ :Continuar sin proveedor\nsegún política de origen;
+endif
+|SIGA|
+:Validar producto, UoM, permisos\ny proveedor activo cuando aplique;
+|Encargado / Recepción|
+:Registrar N detalles, costo, lote/serie,\nubicación, documento y evidencia si aplica;
+|SIGA|
+if (Datos/trazabilidad válidos?) then (sí)
+ :Confirmar en transacción ACID;
+ :Conservar snapshot de proveedor\ncuando aplique;
+ :Actualizar existencia y costo;
+ :Registrar movimiento + outbox + auditoría;
+else (no)
+ :Rechazar sin efecto parcial;
+endif
+|Encargado / Recepción|
+:Verificar resultado;
+stop
+@enduml

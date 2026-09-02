@@ -1,0 +1,96 @@
+@startuml
+' @DERIVADO_VISUAL_META_BEGIN
+' SIGA v1.2 — DERIVADO VISUAL / RENDER ONLY / NO CANÓNICO
+' Fuente canónica: diagramas/secuencia/SEQ_13_Reporte_Persistente.puml
+' Uso: informe, Word, sustentación y exportación PNG/SVG.
+' Prohibido usar como fuente de implementación, requisitos o contexto de agentes/IA.
+' Generado por: tools/generar_derivados_visuales.py
+' @DERIVADO_VISUAL_META_END
+title SEQ-13 — Reporte desde read models
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam actor {
+  BackgroundColor<<User>> #FDEDEC
+  BorderColor<<User>> #E74C3C
+  FontColor<<User>> #C0392B
+}
+skinparam participant {
+  BackgroundColor<<Client>> #EAFAF1
+  BorderColor<<Client>> #2ECC71
+  FontColor<<Client>> #27AE60
+
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+
+  BackgroundColor<<Storage>> #E8F8F5
+  BorderColor<<Storage>> #1ABC9C
+  FontColor<<Storage>> #16A085
+}
+skinparam database {
+  BackgroundColor<<RDBMS>> #F4ECF7
+  BorderColor<<RDBMS>> #9B59B6
+  FontColor<<RDBMS>> #8E44AD
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+actor "<size:18><&person></size>\nUsuario" as Usuario <<User>>
+participant "<size:18><&browser></size>\nWeb" as Web <<Client>>
+participant "<size:18><&cog></size>\nMS-REP" as REP <<Microservice>>
+database "<size:18><&hard-drive></size>\nanalytics schema" as DB <<RDBMS>>
+participant "<size:18><&cloud></size>\nGCS/MinIO" as OBJ <<Storage>>
+
+' --- Lógica y Contenido Original ---
+Usuario -> Web : filtros + formato PDF/XLSX/CSV
+Web -> REP : POST /api/v1/reports
+REP -> DB : INSERT report_job(PENDING)
+REP -> DB : leer product/inventory/movement projections + KPI
+REP -> REP : generar archivo
+alt temporal
+ REP -> DB : report_job=COMPLETED (persist_result=false)
+ REP --> Web : archivo/stream
+else oficial/auditable
+ REP -> OBJ : guardar objeto
+ REP -> DB : report_job=COMPLETED + objectKey + SHA-256
+ REP --> Web : metadata + acceso controlado
+end
+
+' Corrección: Se ancló la nota para evitar errores de sintaxis y mantener el tamaño de caja compacto
+note over REP, OBJ
+MS-REP no consulta ni modifica stock como autoridad.
+Los read models son eventualmente consistentes y se alimentan por eventos.
+end note
+@enduml

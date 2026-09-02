@@ -1,0 +1,80 @@
+@startuml
+title SEQ-11 — Transactional Outbox por servicio productor
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam participant {
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+}
+skinparam database {
+  BackgroundColor<<RDBMS>> #F4ECF7
+  BorderColor<<RDBMS>> #9B59B6
+  FontColor<<RDBMS>> #8E44AD
+}
+skinparam queue {
+  BackgroundColor<<Queue>> #FDEBD0
+  BorderColor<<Queue>> #E67E22
+  FontColor<<Queue>> #D35400
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+participant "<size:18><&cog></size>\nUse Case\nIAM/CAT/INV/EVI" as UC <<Microservice>>
+database "<size:18><&hard-drive></size>\nschema propietario" as DB <<RDBMS>>
+participant "<size:18><&cog></size>\nOutbox Publisher" as PUB <<Microservice>>
+queue "<size:18><&envelope-closed></size>\nRabbitMQ" as RabbitMQ <<Queue>>
+
+' --- Lógica y Contenido Original ---
+UC -> DB : BEGIN
+UC -> DB : cambios de dominio
+UC -> DB : INSERT <schema>.outbox_event(PENDING)
+UC -> DB : COMMIT
+... ciclo worker ...
+PUB -> DB : reclamar PENDING (lote/lock)
+PUB -> RabbitMQ : publish persistent message
+RabbitMQ --> PUB : publisher confirm
+PUB -> DB : status=PUBLISHED, published_at
+alt broker no disponible
+ RabbitMQ x--> PUB : error
+ PUB -> DB : attempts++, next_attempt_at\nconserva PENDING/FAILED según política
+end
+
+' Corrección: Reducimos el ancho de la nota anclándola solo a la Base de Datos y el Publisher
+note over DB, PUB
+No existe outbox compartido.
+Cada productor conserva el Outbox en su propio schema/ownership.
+end note
+@enduml

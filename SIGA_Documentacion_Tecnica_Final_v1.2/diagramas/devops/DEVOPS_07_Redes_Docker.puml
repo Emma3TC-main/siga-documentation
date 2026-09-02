@@ -1,0 +1,223 @@
+@startuml DEVOPS_07_Network_Segmentation
+
+' ============================================================
+' CONFIGURACIÓN VISUAL
+' La lógica y el contenido se mantienen según la fuente de verdad.
+' ============================================================
+
+!theme plain
+
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+skinparam defaultFontColor #1E293B
+skinparam dpi 300
+skinparam padding 8
+
+top to bottom direction
+
+skinparam BackgroundColor #F8FAFC
+
+' ============================================================
+' FLECHAS Y RELACIONES
+' ============================================================
+
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 11
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' INTERNET / RED EXTERNA
+' ============================================================
+
+skinparam cloud {
+    BackgroundColor #EEF2FF
+    BorderColor #4F46E5
+    BorderThickness 1.5
+    FontColor #3730A3
+    FontStyle bold
+    FontSize 13
+}
+
+' ============================================================
+' REDES LÓGICAS
+' ============================================================
+
+skinparam package {
+    BackgroundColor #FFFFFF
+    BorderColor #94A3B8
+    BorderThickness 1.5
+    FontColor #334155
+    FontStyle bold
+    FontSize 13
+}
+
+' ============================================================
+' COMPONENTES
+' ============================================================
+
+skinparam rectangle {
+    BackgroundColor #EFF6FF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #1E40AF
+}
+
+skinparam queue {
+    BackgroundColor #FEF3C7
+    BorderColor #D97706
+    BorderThickness 1.2
+    FontColor #92400E
+}
+
+skinparam database {
+    BackgroundColor #ECFEFF
+    BorderColor #0891B2
+    BorderThickness 1.2
+    FontColor #155E75
+}
+
+' ============================================================
+' ESTILOS SEMÁNTICOS
+' ============================================================
+
+<style>
+
+package {
+
+    .edge {
+        BackgroundColor #F8FAFC
+        LineColor #64748B
+        FontColor #334155
+    }
+
+    .backend {
+        BackgroundColor #F5F3FF
+        LineColor #7C3AED
+        FontColor #5B21B6
+    }
+
+    .data {
+        BackgroundColor #ECFEFF
+        LineColor #0891B2
+        FontColor #155E75
+    }
+
+    .observability {
+        BackgroundColor #F5F3FF
+        LineColor #7C3AED
+        FontColor #5B21B6
+    }
+}
+
+rectangle {
+
+    .edgeComponent {
+        BackgroundColor #F1F5F9
+        LineColor #475569
+        FontColor #1E293B
+    }
+
+    .backendComponent {
+        BackgroundColor #F5F3FF
+        LineColor #7C3AED
+        FontColor #5B21B6
+    }
+
+    .observabilityComponent {
+        BackgroundColor #F5F3FF
+        LineColor #7C3AED
+        FontColor #5B21B6
+    }
+}
+
+</style>
+
+' ============================================================
+' TÍTULO
+' ============================================================
+
+title
+<b><size:16><color:#1E293B>DEVOPS-07 — Segmentación lógica de redes Docker</color></size></b>
+<size:11><color:#64748B>Separación de redes y mínimo privilegio de conectividad</color></size>
+end title
+
+' ============================================================
+' ARQUITECTURA DE RED
+' ============================================================
+
+cloud "<b>Internet</b>\n<size:10><color:#3730A3><&globe> Red externa</color></size>" as Internet
+
+package "<b>edge-network</b>\n<size:10><color:#334155>Entrada y enrutamiento</color></size>" as EDGE <<edge>> {
+
+    rectangle "<b>Nginx</b>\n<size:10><color:#1E293B><&globe> Reverse Proxy</color></size>" as Nginx <<edgeComponent>>
+
+    rectangle "<b>Web</b>\n<size:10><color:#1E293B><&browser> Frontend</color></size>" as Web <<edgeComponent>>
+
+    rectangle "<b>Gateway</b>\n<size:10><color:#1E293B><&transfer> API Gateway</color></size>" as Gateway <<edgeComponent>>
+}
+
+package "<b>backend-network</b>\n<size:10><color:#5B21B6>Lógica de negocio</color></size>" as BACKEND <<backend>> {
+
+    rectangle "<b>Microservices</b>\n<size:10><color:#5B21B6><&layers> Servicios</color></size>" as MS <<backendComponent>>
+
+    queue "<b>RabbitMQ</b>\n<size:10><color:#92400E><&envelope-closed> Mensajería</color></size>" as RabbitMQ
+}
+
+package "<b>data-network</b>\n<size:10><color:#155E75>Persistencia</color></size>" as DATA <<data>> {
+
+    database "<b>PostgreSQL/Cloud connector</b>\n<size:10><color:#155E75><&hard-drive> Base de datos</color></size>" as PG
+
+    database "<b>Redis</b>\n<size:10><color:#155E75><&bolt> Cache</color></size>" as Redis
+}
+
+package "<b>observability-network</b>\n<size:10><color:#5B21B6>Monitoreo</color></size>" as OBSNET <<observability>> {
+
+    rectangle "<b>Prometheus</b>\n<size:10><color:#5B21B6><&dashboard> Métricas</color></size>" as Prometheus <<observabilityComponent>>
+
+    rectangle "<b>Grafana</b>\n<size:10><color:#5B21B6><&monitor> Visualización</color></size>" as Grafana <<observabilityComponent>>
+
+    rectangle "<b>Loki</b>\n<size:10><color:#5B21B6><&file> Logs</color></size>" as Loki <<observabilityComponent>>
+}
+
+' ============================================================
+' RELACIONES — FUENTE DE VERDAD
+' ============================================================
+
+Internet --> Nginx : 443
+
+Nginx --> Web
+
+Nginx --> Gateway
+
+Gateway --> MS
+
+MS --> PG
+
+MS --> Redis
+
+MS --> RabbitMQ
+
+Prometheus ..> MS
+
+Loki ..> MS
+
+Grafana --> Prometheus
+
+Grafana --> Loki
+
+' ============================================================
+' NOTA — FUENTE DE VERDAD
+' ============================================================
+
+note bottom
+  <b>Prohibido:</b> Internet -> PG/Redis/RabbitMQ;
+  React -> DB; un microservicio -> schema ajeno por SQL.
+
+  Las redes de Compose limitan conectividad al mínimo requerido.
+end note
+
+@enduml

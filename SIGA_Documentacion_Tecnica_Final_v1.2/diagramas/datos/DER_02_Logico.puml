@@ -1,0 +1,495 @@
+@startuml
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+hide methods
+title DER-02 — Modelo lógico global por bounded contexts
+package "iam — identity-service" {
+ entity "user_account" as iam_user_account {
+ id : uuid <<PK>>
+ username : varchar(100)
+ email : varchar(254)
+ password_hash : varchar(255)
+ active : boolean
+ mfa_enabled : boolean
+ mfa_secret_encrypted : text
+ failed_login_attempts : integer
+ locked_until : timestamptz
+ version : bigint
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "role" as iam_role {
+ id : uuid <<PK>>
+ code : varchar(80)
+ name : varchar(120)
+ active : boolean
+ version : bigint
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "permission" as iam_permission {
+ id : uuid <<PK>>
+ code : varchar(120)
+ description : varchar(255)
+ created_at : timestamptz
+ }
+ entity "user_role" as iam_user_role {
+ user_id : uuid
+ role_id : uuid
+ assigned_at : timestamptz
+ }
+ entity "role_permission" as iam_role_permission {
+ role_id : uuid
+ permission_id : uuid
+ assigned_at : timestamptz
+ }
+ entity "refresh_token" as iam_refresh_token {
+ id : uuid <<PK>>
+ user_id : uuid
+ token_hash : varchar(255)
+ jti : uuid
+ family_id : uuid
+ expires_at : timestamptz
+ revoked_at : timestamptz
+ replaced_by_jti : uuid
+ created_at : timestamptz
+ }
+ entity "outbox_event" as iam_outbox_event {
+ id : uuid <<PK>>
+ aggregate_type : varchar(80)
+ aggregate_id : uuid
+ event_type : varchar(120)
+ schema_version : integer
+ correlation_id : uuid
+ causation_id : uuid
+ payload : jsonb
+ status : varchar(20)
+ attempts : integer
+ next_attempt_at : timestamptz
+ occurred_at : timestamptz
+ ...
+ }
+}
+package "catalog — catalog-service" {
+ entity "category" as catalog_category {
+ id : uuid <<PK>>
+ code : varchar(50)
+ name : varchar(120)
+ category_type : varchar(40)
+ active : boolean
+ version : bigint
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "supplier" as catalog_supplier {
+ id : uuid <<PK>>
+ code : varchar(50)
+ tax_id : varchar(20)
+ business_name : varchar(200)
+ trade_name : varchar(200)
+ contact_name : varchar(160)
+ phone : varchar(40)
+ email : varchar(254)
+ address : varchar(300)
+ active : boolean
+ version : bigint
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "unit_measure" as catalog_unit_measure {
+ id : uuid <<PK>>
+ code : varchar(20)
+ name : varchar(80)
+ symbol : varchar(20)
+ dimension : varchar(40)
+ active : boolean
+ version : bigint
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "product" as catalog_product {
+ id : uuid <<PK>>
+ sku : varchar(80)
+ name : varchar(200)
+ category_id : uuid
+ product_type : varchar(40)
+ storage_unit_id : uuid
+ base_unit_id : uuid
+ min_stock : numeric(18,6)
+ requires_lot : boolean
+ requires_heat_number : boolean
+ requires_expiry : boolean
+ requires_serial : boolean
+ ...
+ }
+ entity "unit_conversion" as catalog_unit_conversion {
+ id : uuid <<PK>>
+ product_id : uuid
+ from_unit_id : uuid
+ to_unit_id : uuid
+ factor : numeric(18,6)
+ active : boolean
+ version : bigint
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "outbox_event" as catalog_outbox_event {
+ id : uuid <<PK>>
+ aggregate_type : varchar(80)
+ aggregate_id : uuid
+ event_type : varchar(120)
+ schema_version : integer
+ correlation_id : uuid
+ causation_id : uuid
+ payload : jsonb
+ status : varchar(20)
+ attempts : integer
+ next_attempt_at : timestamptz
+ occurred_at : timestamptz
+ ...
+ }
+}
+package "inventory — inventory-service" {
+ entity "location" as inventory_location {
+ id : uuid <<PK>>
+ code : varchar(80)
+ name : varchar(160)
+ location_type : varchar(30)
+ parent_id : uuid
+ active : boolean
+ version : bigint
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "supplier_ref" as inventory_supplier_ref {
+ supplier_id : uuid <<PK>>
+ code : varchar(50)
+ tax_id : varchar(20)
+ business_name : varchar(200)
+ active : boolean
+ source_version : bigint
+ updated_at : timestamptz
+ }
+ entity "product_ref" as inventory_product_ref {
+ product_id : uuid <<PK>>
+ sku : varchar(80)
+ product_type : varchar(40)
+ storage_unit_code : varchar(20)
+ base_unit_code : varchar(20)
+ min_stock : numeric(18,6)
+ requires_lot : boolean
+ requires_heat_number : boolean
+ requires_serial : boolean
+ requires_expiry : boolean
+ active : boolean
+ source_version : bigint
+ ...
+ }
+ entity "product_unit_conversion_ref" as inventory_product_unit_conversion_ref {
+ product_id : uuid
+ from_unit_code : varchar(20)
+ to_unit_code : varchar(20)
+ factor : numeric(18,6)
+ active : boolean
+ source_version : bigint
+ updated_at : timestamptz
+ }
+ entity "lot" as inventory_lot {
+ id : uuid <<PK>>
+ product_id : uuid
+ lot_number : varchar(120)
+ heat_number : varchar(120)
+ manufactured_at : date
+ received_at : date
+ expires_at : date
+ status : varchar(30)
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "asset" as inventory_asset {
+ id : uuid <<PK>>
+ product_id : uuid
+ asset_code : varchar(80)
+ serial_number : varchar(160)
+ brand : varchar(100)
+ model : varchar(100)
+ operational_status : varchar(40)
+ technical_snapshot : jsonb
+ created_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "stock_balance" as inventory_stock_balance {
+ id : uuid <<PK>>
+ product_id : uuid
+ location_id : uuid
+ lot_id : uuid
+ asset_id : uuid
+ quantity : numeric(18,6)
+ avg_cost_pen : numeric(18,6)
+ version : bigint
+ updated_at : timestamptz
+ }
+ entity "movement" as inventory_movement {
+ id : uuid <<PK>>
+ movement_code : varchar(80)
+ movement_type : varchar(30)
+ status : varchar(40)
+ registered_by_user_id : uuid
+ cost_center_name_snapshot : varchar(160)
+ supplier_id : uuid
+ supplier_name_snapshot : varchar(200)
+ supplier_tax_id_snapshot : varchar(20)
+ reference_doc_type : varchar(40)
+ reference_doc_number : varchar(120)
+ reason : varchar(255)
+ notes : text
+ is_sensitive : boolean
+ sensitivity_reason : varchar(255)
+ ...
+ }
+ entity "movement_detail" as inventory_movement_detail {
+ id : uuid <<PK>>
+ movement_id : uuid
+ line_number : integer
+ product_id : uuid
+ entered_quantity : numeric(18,6)
+ unit_code : varchar(20)
+ conversion_factor : numeric(18,6)
+ stock_quantity : numeric(18,6)
+ origin_location_id : uuid
+ destination_location_id : uuid
+ lot_id : uuid
+ asset_id : uuid
+ ...
+ }
+ entity "movement_authorization" as inventory_movement_authorization {
+ id : uuid <<PK>>
+ movement_id : uuid
+ requested_at : timestamptz
+ decided_at : timestamptz
+ authorized_by_user_id : uuid
+ step_up_verified : boolean
+ reason : varchar(255)
+ }
+ entity "physical_count" as inventory_physical_count {
+ id : uuid <<PK>>
+ location_id : uuid
+ status : varchar(30)
+ counted_by_user_id : uuid
+ started_at : timestamptz
+ completed_at : timestamptz
+ created_at : timestamptz
+ }
+ entity "physical_count_line" as inventory_physical_count_line {
+ id : uuid <<PK>>
+ count_id : uuid
+ product_id : uuid
+ lot_id : uuid
+ asset_id : uuid
+ system_quantity : numeric(18,6)
+ counted_quantity : numeric(18,6)
+ difference_quantity : numeric(18,6)
+ }
+ entity "idempotency_record" as inventory_idempotency_record {
+ id : uuid <<PK>>
+ idempotency_key : uuid
+ request_hash : char(64)
+ resource_type : varchar(80)
+ resource_id : uuid
+ response_status : integer
+ response_body : jsonb
+ created_at : timestamptz
+ expires_at : timestamptz
+ }
+ entity "processed_event" as inventory_processed_event {
+ event_id : uuid
+ consumer : varchar(120)
+ processed_at : timestamptz
+ }
+ entity "outbox_event" as inventory_outbox_event {
+ id : uuid <<PK>>
+ aggregate_type : varchar(80)
+ aggregate_id : uuid
+ event_type : varchar(120)
+ schema_version : integer
+ correlation_id : uuid
+ causation_id : uuid
+ payload : jsonb
+ status : varchar(20)
+ attempts : integer
+ next_attempt_at : timestamptz
+ occurred_at : timestamptz
+ ...
+ }
+}
+package "evidence — evidence-service" {
+ entity "evidence_metadata" as evidence_evidence_metadata {
+ id : uuid <<PK>>
+ owner_type : varchar(30)
+ owner_id : uuid
+ original_filename : varchar(255)
+ content_type : varchar(120)
+ size_bytes : bigint
+ storage_provider : varchar(30)
+ uploaded_by_user_id : uuid
+ metadata : jsonb
+ uploaded_at : timestamptz
+ updated_at : timestamptz
+ }
+ entity "outbox_event" as evidence_outbox_event {
+ id : uuid <<PK>>
+ aggregate_type : varchar(80)
+ aggregate_id : uuid
+ event_type : varchar(120)
+ schema_version : integer
+ correlation_id : uuid
+ causation_id : uuid
+ payload : jsonb
+ status : varchar(20)
+ attempts : integer
+ next_attempt_at : timestamptz
+ occurred_at : timestamptz
+ ...
+ }
+}
+package "audit — audit-notification-service" {
+ entity "audit_event" as audit_audit_event {
+ id : uuid <<PK>>
+ event_type : varchar(120)
+ actor_id : uuid
+ aggregate_id : uuid
+ action : varchar(120)
+ result : varchar(30)
+ correlation_id : uuid
+ details : jsonb
+ occurred_at : timestamptz
+ }
+ entity "notification" as audit_notification {
+ id : uuid <<PK>>
+ user_id : uuid
+ title : varchar(160)
+ message : text
+ reference_type : varchar(80)
+ reference_id : uuid
+ read_at : timestamptz
+ created_at : timestamptz
+ }
+ entity "processed_event" as audit_processed_event {
+ event_id : uuid
+ consumer : varchar(120)
+ processed_at : timestamptz
+ }
+}
+package "analytics — reporting-analytics-service" {
+ entity "product_projection" as analytics_product_projection {
+ product_id : uuid <<PK>>
+ sku : varchar(80)
+ name : varchar(200)
+ category_code : varchar(50)
+ category_name : varchar(120)
+ product_type : varchar(40)
+ base_unit_code : varchar(20)
+ storage_unit_code : varchar(20)
+ min_stock : numeric(18,6)
+ active : boolean
+ source_version : bigint
+ source_event_id : uuid
+ ...
+ }
+ entity "inventory_projection" as analytics_inventory_projection {
+ stock_balance_id : uuid <<PK>>
+ product_id : uuid
+ location_id : uuid
+ lot_id : uuid
+ asset_id : uuid
+ quantity : numeric(18,6)
+ avg_cost_pen : numeric(18,6)
+ min_stock : numeric(18,6)
+ source_event_id : uuid
+ updated_at : timestamptz
+ }
+ entity "movement_projection" as analytics_movement_projection {
+ movement_id : uuid <<PK>>
+ movement_code : varchar(80)
+ movement_type : varchar(30)
+ status : varchar(40)
+ registered_by_user_id : uuid
+ requested_by_user_id : uuid
+ cost_center_code : varchar(80)
+ cost_center_name_snapshot : varchar(160)
+ supplier_id : uuid
+ supplier_name_snapshot : varchar(200)
+ supplier_tax_id_snapshot : varchar(20)
+ total_base_cost_pen : numeric(18,6)
+ confirmed_at : timestamptz
+ source_event_id : uuid
+ updated_at : timestamptz
+ }
+ entity "kpi_snapshot" as analytics_kpi_snapshot {
+ id : uuid <<PK>>
+ metric_code : varchar(80)
+ dimension_key : varchar(160)
+ metric_value : numeric(20,6)
+ measured_at : timestamptz
+ source_event_id : uuid
+ created_at : timestamptz
+ }
+ entity "report_job" as analytics_report_job {
+ id : uuid <<PK>>
+ report_type : varchar(80)
+ requested_by_user_id : uuid
+ filters : jsonb
+ persist_result : boolean
+ status : varchar(30)
+ object_key : varchar(500)
+ error_message : text
+ created_at : timestamptz
+ started_at : timestamptz
+ completed_at : timestamptz
+ }
+ entity "processed_event" as analytics_processed_event {
+ event_id : uuid
+ consumer : varchar(120)
+ processed_at : timestamptz
+ }
+ entity "export_checkpoint" as analytics_export_checkpoint {
+ consumer : varchar(120) <<PK>>
+ last_event_id : uuid
+ last_occurred_at : timestamptz
+ updated_at : timestamptz
+ }
+}
+iam_user_account ||--o{ iam_user_role : 1:N
+iam_role ||--o{ iam_user_role : 1:N
+iam_role ||--o{ iam_role_permission : 1:N
+iam_permission ||--o{ iam_role_permission : 1:N
+iam_user_account ||--o{ iam_refresh_token : 1:N
+catalog_category ||--o{ catalog_product : 1:N
+catalog_product ||--o{ catalog_unit_conversion : 1:N
+catalog_unit_measure ||--o{ catalog_unit_conversion : UoM
+inventory_location ||--o{ inventory_location : parent
+inventory_product_ref ||--o{ inventory_product_unit_conversion_ref : 1:N
+inventory_product_ref ||--o{ inventory_lot : 1:N
+inventory_product_ref ||--o{ inventory_asset : 1:N
+inventory_product_ref ||--o{ inventory_stock_balance : 1:N
+inventory_location ||--o{ inventory_stock_balance : 1:N
+inventory_lot ||--o{ inventory_stock_balance : 0..1:N
+inventory_asset ||--o{ inventory_stock_balance : 0..1:1
+inventory_supplier_ref |o--o{ inventory_movement : supplier_id
+inventory_movement ||--o{ inventory_movement_detail : 1:N
+inventory_movement ||--o{ inventory_movement_authorization : 1:N
+inventory_physical_count ||--o{ inventory_physical_count_line : 1:N
+catalog_supplier ..> inventory_supplier_ref : SupplierCreated/Updated
+catalog_product ..> inventory_product_ref : ProductCreated/Updated
+catalog_unit_conversion ..> inventory_product_unit_conversion_ref : event projection
+inventory_movement ..> evidence_evidence_metadata : owner UUID
+inventory_asset ..> evidence_evidence_metadata : owner UUID
+inventory_outbox_event ..> audit_processed_event : RabbitMQ
+inventory_outbox_event ..> analytics_processed_event : RabbitMQ
+catalog_outbox_event ..> inventory_processed_event : RabbitMQ
+note bottom
+FK sólidas: solo dentro del mismo schema/ownership.\nRelaciones punteadas: UUID externo, evento o proyección eventual.\nPostgreSQL no contiene FK cross-schema entre microservicios.
+end note
+@enduml

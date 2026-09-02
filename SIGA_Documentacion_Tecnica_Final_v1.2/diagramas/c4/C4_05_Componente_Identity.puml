@@ -1,0 +1,152 @@
+@startuml
+' ============================================================
+' CONFIGURACIÓN VISUAL GENERAL Y ARQUITECTÓNICA
+' ============================================================
+!theme plain
+
+' Diseño jerárquico de arriba hacia abajo
+top to bottom direction
+skinparam linetype ortho
+
+' Optimización de espacios para evitar la dispersión horizontal (layout ancho)
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam padding 12
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName "Segoe UI", "Helvetica Neue", Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam textalignment center
+skinparam dpi 300
+
+skinparam BackgroundColor #FFFFFF
+
+' ============================================================
+' ESTILOS DE LÍNEAS Y FLECHAS
+' ============================================================
+skinparam ArrowColor #64748B
+skinparam ArrowThickness 1.5
+skinparam ArrowFontColor #475569
+skinparam ArrowFontSize 12
+skinparam ArrowFontStyle bold
+
+' ============================================================
+' ESTILOS DE COMPONENTES POR TIPO (ESTEREOTIPOS VISUALES)
+' ============================================================
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam rectangle<<Controller>> {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  BorderThickness 2
+}
+
+skinparam rectangle<<UseCase>> {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+  BorderThickness 2
+}
+
+skinparam rectangle<<Domain>> {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+  BorderThickness 2
+}
+
+skinparam rectangle<<Security>> {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+}
+
+skinparam rectangle<<Adapter>> {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+}
+
+skinparam database {
+  BackgroundColor #FFFBEB
+  BorderColor #D97706
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #EAB308
+  FontColor #713F12
+  FontSize 12
+}
+
+' ============================================================
+' DIAGRAMA (CONTENIDO INMUTABLE)
+' ============================================================
+title <size:18><color:#0F172A><b>C4-05 — Componentes internos de MS-IAM</b></color></size>
+
+' 1. Capa de Controladores
+rectangle "Auth/User/Role Controllers" as REST <<Controller>>
+
+' 2. Capa de Casos de Uso
+together {
+  rectangle "Authentication Use Cases" as AUTH <<UseCase>>
+  rectangle "User & RBAC Use Cases" as RBAC <<UseCase>>
+}
+
+' 3. Capa de Dominio (Central)
+rectangle "Domain\nUser, Role, Permission, RefreshSession" as DOM <<Domain>>
+
+' 4. Servicios de Soporte, Seguridad y Adaptadores 
+' (Divididos en dos bloques "together" para mejorar el aspect ratio y evitar el desbordamiento horizontal)
+together {
+  rectangle "JWT RS256 Issuer / JWKS" as JWT <<Security>>
+  rectangle "Refresh Rotation & Revocation" as REF <<Security>>
+  rectangle "Argon2id Password Encoder" as ARG <<Security>>
+}
+
+together {
+  rectangle "TOTP Service" as TOTP <<Security>>
+  rectangle "Rate Limit / OTP state adapter" as RDS <<Adapter>>
+}
+
+' 5. Capa de Persistencia / Caché
+together {
+  database "iam schema" as DB
+  database "Redis" as REDIS
+}
+
+' --- ALINEACIÓN VISUAL INVISIBLE (Para forzar estructura de capas sin alterar lógica) ---
+REST -[hidden]down-> AUTH
+AUTH -[hidden]down-> DOM
+DOM -[hidden]down-> REF
+REF -[hidden]down-> DB
+
+' --- RELACIONES FUNCIONALES ---
+REST --> AUTH
+REST --> RBAC
+
+AUTH --> ARG
+AUTH --> TOTP
+AUTH --> JWT
+AUTH --> REF
+AUTH --> DOM
+AUTH --> RDS
+
+RBAC --> DOM
+
+DOM --> DB
+REF --> DB
+RDS --> REDIS
+
+JWT --> REST : access token
+
+note right of JWT
+Clave privada solo en Identity.
+Gateway y microservicios validan con clave pública/JWKS.
+Access 30 min; refresh 7 días con rotación.
+end note
+
+@enduml

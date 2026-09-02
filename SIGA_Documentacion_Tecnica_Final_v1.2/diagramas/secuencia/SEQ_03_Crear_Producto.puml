@@ -1,0 +1,106 @@
+@startuml
+title SEQ-03 — Crear/actualizar producto y proyectar reglas en Inventory
+
+' --- Configuración visual (Skinparams) Mejorada ---
+skinparam shadowing true
+skinparam roundcorner 16
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+skinparam BackgroundColor #F8F9FA
+
+' Ocultar las etiquetas de los estereotipos para mantener un diseño limpio
+hide stereotype
+
+' --- Estilos base para Secuencia ---
+skinparam sequence {
+  ArrowColor #34495E
+  ArrowThickness 1.5
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #ECF0F1
+  
+  ParticipantBorderThickness 2
+  ParticipantPadding 20
+  
+  ' Estilos de Grupos (alt/else)
+  GroupHeaderFontColor #2C3E50
+  GroupHeaderBackgroundColor #EAECEE
+  GroupBorderColor #ABB2B9
+  GroupBorderThickness 1.5
+  GroupBackgroundColor #FFFFFF
+}
+
+' --- Paleta de Colores Diferenciada por Componente ---
+skinparam actor {
+  BackgroundColor<<User>> #FDEDEC
+  BorderColor<<User>> #E74C3C
+  FontColor<<User>> #C0392B
+}
+skinparam participant {
+  BackgroundColor<<Client>> #EAFAF1
+  BorderColor<<Client>> #2ECC71
+  FontColor<<Client>> #27AE60
+
+  BackgroundColor<<Gateway>> #FEF9E7
+  BorderColor<<Gateway>> #F1C40F
+  FontColor<<Gateway>> #D4AC0D
+
+  BackgroundColor<<Microservice>> #EBF5FB
+  BorderColor<<Microservice>> #3498DB
+  FontColor<<Microservice>> #2980B9
+}
+skinparam database {
+  BackgroundColor<<RDBMS>> #F4ECF7
+  BorderColor<<RDBMS>> #9B59B6
+  FontColor<<RDBMS>> #8E44AD
+}
+skinparam queue {
+  BackgroundColor<<Queue>> #FDEBD0
+  BorderColor<<Queue>> #E67E22
+  FontColor<<Queue>> #D35400
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #A16207
+  FontColor #2C3E50
+}
+
+' --- Declaración de Participantes con Iconos y Estereotipos ---
+actor "<size:18><&person></size>\nAdministrador" as Administrador <<User>>
+participant "<size:18><&browser></size>\nWeb" as Web <<Client>>
+participant "<size:18><&bolt></size>\nGateway" as Gateway <<Gateway>>
+participant "<size:18><&box></size>\nMS-CAT" as CAT <<Microservice>>
+database "<size:18><&hard-drive></size>\ncatalog schema" as CDB <<RDBMS>>
+queue "<size:18><&envelope-closed></size>\nRabbitMQ" as RabbitMQ <<Queue>>
+participant "<size:18><&cog></size>\nMS-INV Catalog Consumer" as INV <<Microservice>>
+database "<size:18><&hard-drive></size>\ninventory schema" as IDB <<RDBMS>>
+
+' --- Lógica y Contenido Original ---
+Administrador -> Web : producto + UoM + conversiones + trazabilidad
+Web -> Gateway : POST /api/v1/products
+Gateway -> CAT
+CAT -> CAT : validar SKU/categoría/UoM/flags/JSONB
+CAT -> CDB : BEGIN
+CAT -> CDB : INSERT product + unit_conversion*
+CAT -> CDB : INSERT catalog.outbox_event(ProductCreated)
+CAT -> CDB : COMMIT
+CAT --> Web : 201 Created
+... publisher outbox ...
+CAT -> RabbitMQ : ProductCreated v1
+RabbitMQ -> INV : eventId E1
+INV -> IDB : BEGIN + verificar inventory.processed_event(E1)
+alt evento nuevo
+ INV -> IDB : UPSERT product_ref
+ INV -> IDB : UPSERT product_unit_conversion_ref
+ INV -> IDB : INSERT processed_event(E1)
+ INV -> IDB : COMMIT
+ INV --> RabbitMQ : ACK
+else duplicado
+ INV -> IDB : COMMIT sin efecto
+ INV --> RabbitMQ : ACK
+end
+
+note over INV, IDB
+Inventory no llama a Catalog dentro del commit de movimiento.
+Las reglas necesarias quedan proyectadas localmente.
+end note
+@enduml

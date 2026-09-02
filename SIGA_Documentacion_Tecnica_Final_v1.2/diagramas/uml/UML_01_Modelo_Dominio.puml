@@ -1,0 +1,137 @@
+@startuml
+title UML-01 — Modelo de dominio general SIGA
+
+' --- Configuración visual ---
+skinparam shadowing true
+skinparam roundcorner 24
+skinparam defaultFontName "Segoe UI", Helvetica, Arial, sans-serif
+skinparam defaultFontSize 13
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1.5
+
+skinparam BackgroundColor #F8F9FA
+
+skinparam NoteBackgroundColor #FFF9C4
+skinparam NoteBorderColor #FBC02D
+skinparam NoteFontColor #3E2723
+
+' --- Estilos base para paquetes ---
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #1976D2
+  BorderThickness 1.5
+  FontColor #0D47A1
+  FontSize 14
+  StereotypeFontColor #37474F
+  StereotypeFontSize 11
+}
+
+' --- Estilos base para clases ---
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #546E7A
+  BorderThickness 1.2
+  FontColor #263238
+  FontSize 13
+}
+
+' --- Paquetes del dominio ---
+
+package "IAM" {
+  class User
+  class Role
+  class Permission
+  class RefreshSession
+  class IamOutboxEvent
+}
+
+package "Catalog" {
+  class Category
+  class Supplier
+  class Product
+  class UnitOfMeasure
+  class UnitConversion
+  class CatalogOutboxEvent
+}
+
+package "Inventory Core" {
+  class SupplierReference
+  class ProductReference
+  class ProductUnitConversionReference
+  class Location
+  class Lot
+  class Asset
+  class StockBalance
+  class Movement
+  class MovementDetail
+  class MovementAuthorization
+  class PhysicalCount
+  class PhysicalCountLine
+  class IdempotencyRecord
+  class ProcessedEvent
+  class InventoryOutboxEvent
+}
+
+package "Evidence" {
+  class EvidenceMetadata
+  class EvidenceOutboxEvent
+}
+
+package "Audit / Notification" {
+  class AuditEvent
+  class Notification
+  class AuditProcessedEvent
+}
+
+package "Reporting / Analytics" {
+  class ProductProjection
+  class InventoryProjection
+  class MovementProjection
+  class KpiSnapshot
+  class ReportJob
+  class AnalyticsProcessedEvent
+  class ExportCheckpoint
+}
+
+' --- Relaciones ---
+
+User "*" -- "*" Role
+Role "*" -- "*" Permission
+User "1" -- "*" RefreshSession
+
+Product "*" --> "1" Category
+Product "*" --> "2" UnitOfMeasure : storage/base
+Product "1" --> "*" UnitConversion
+
+Supplier ..> SupplierReference : SupplierCreated/Updated
+SupplierReference "1" --> "0..*" Movement : proveedor 0..1 por entrada
+Product ..> ProductReference : ProductCreated/Updated
+UnitConversion ..> ProductUnitConversionReference : event projection
+
+ProductReference "1" --> "*" Lot
+ProductReference "1" --> "*" Asset
+ProductReference "1" --> "*" StockBalance
+
+Location "1" --> "*" StockBalance
+
+Movement "1" --> "1..*" MovementDetail
+Movement "1" --> "0..*" MovementAuthorization
+
+PhysicalCount "1" --> "*" PhysicalCountLine
+
+Movement ..> EvidenceMetadata : owner UUID
+Asset ..> EvidenceMetadata : owner UUID
+
+InventoryOutboxEvent ..> AuditProcessedEvent : RabbitMQ
+InventoryOutboxEvent ..> AnalyticsProcessedEvent : RabbitMQ
+
+' --- Nota arquitectónica ---
+
+note bottom
+Las asociaciones entre bounded contexts son UUID externos o eventos.
+No existen FK PostgreSQL cross-schema.
+StockBalance es autoridad de cantidad/costo/ubicación; Analytics solo contiene read models.
+end note
+
+@enduml

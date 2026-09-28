@@ -669,16 +669,18 @@ Elegido sobre Kafka porque SIGA requiere mensajería confiable de volumen modera
 
 `ProductCreated v1` se define en `api/product-created-v1.schema.json`: `eventId` es el UUID de `catalog.outbox_event.id`, `aggregateType=Product`, `aggregateId` es el producto, `schemaVersion=1` y `producer=catalog-service`. `correlationId` es el UUID ya resuelto para el request: Catalog conserva un `X-Correlation-ID` UUID válido o genera uno cuando falta/no es UUID; no introduce conversión o rechazo adicional. `causationId` puede omitirse para un comando HTTP raíz. Los números `minStock` y `factor` son decimales con escala máxima seis.
 
+`SupplierCreated`, `SupplierUpdated` y `SupplierDisabled` v1 se definen en `api/supplier-*-v1.schema.json`. Comparten el sobre: `eventId` es el UUID estable de Outbox, `aggregateType=Supplier`, `aggregateId` identifica al proveedor, `schemaVersion=1`, `producer=catalog-service`, `correlationId` conserva el request y `causationId` es opcional. El payload `{supplier:{id,code,taxId,businessName,active,version}}` corresponde exactamente a `inventory.supplier_ref`; `version` alimenta `source_version`.
+
 ## 11.4 Transactional Outbox por productor
 El patrón aplica a todo servicio que produce eventos relevantes: `iam.outbox_event`, `catalog.outbox_event`, `inventory.outbox_event` y `evidence.outbox_event`. Cada tabla pertenece al mismo schema que el agregado modificado. No existe Outbox compartido.
 
-En Inventory, el mismo commit que stock/movimiento inserta `inventory.outbox_event`. En Catalog, producto/conversiones + outbox se confirman localmente; en IAM, usuario/RBAC + outbox; en Evidence, metadata + outbox. Si RabbitMQ cae, el negocio confirmado permanece correcto y el publisher reintenta, eliminando la ventana DB-commit/event-lost. El append `PENDING` es transaccional; el publisher posterior publica al menos una vez, por lo que los consumidores deduplican.
+En Inventory, el mismo commit que stock/movimiento inserta `inventory.outbox_event`. En Catalog, producto/conversiones + outbox y cada mutación efectiva de proveedor + outbox se confirman localmente; un PUT Supplier sin cambios no incrementa versión ni genera evento. En IAM, usuario/RBAC + outbox; en Evidence, metadata + outbox. Si RabbitMQ cae, el negocio confirmado permanece correcto y el publisher reintenta, eliminando la ventana DB-commit/event-lost. El append `PENDING` es transaccional; el publisher posterior publica al menos una vez, por lo que los consumidores deduplican.
 
 ## 11.5 Consumidor idempotente por ownership
 RabbitMQ puede redeliver. Cada consumidor registra `event_id` procesado en **su propio schema** y los duplicados se ACK sin repetir efectos: `inventory.processed_event` para la proyección de Catalog, `audit.processed_event` para auditoría/notificaciones y `analytics.processed_event` para read models. Ningún consumidor escribe la tabla `processed_event` de otro servicio.
 
 ## 11.6 Confiabilidad
-Durable exchange/queue, persistent messages, publisher confirms, ACK manual, retry/backoff y DLQ. DLQ>0 genera alerta. Management no público. Para `ProductCreated v1`, el exchange topic durable es `siga.events` y la routing key es `catalog.product.created.v1`; Inventory enlaza `catalog.product.created.#`. Esta topología entrega al menos una vez, no exactamente una vez.
+Durable exchange/queue, persistent messages, publisher confirms, ACK manual, retry/backoff y DLQ. DLQ>0 genera alerta. Management no público. Para `ProductCreated v1`, el exchange topic durable es `siga.events` y la routing key es `catalog.product.created.v1`; Inventory enlaza `catalog.product.created.#`. Supplier v1 usa el mismo exchange con `catalog.supplier.created.v1`, `catalog.supplier.updated.v1` y `catalog.supplier.disabled.v1`; su payload transporta `{supplier:{id,code,taxId,businessName,active,version}}`. Esta topología entrega al menos una vez, no exactamente una vez.
 
 ## 11.7 Correlation ID
 Gateway crea/propaga X-Correlation-ID; servicios/eventos lo conservan. Sirve para reconstruir Web→Gateway→Inventory→RabbitMQ→Audit y se incluye en Problem Details/logs.

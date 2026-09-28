@@ -25,6 +25,9 @@
 | TC-SUP-002 | RF-35/RF-07/RNF-06 | Entrada externa con proveedor activo | Integración | JUnit/Testcontainers | valida `supplier_ref`, confirma y conserva snapshot de proveedor | JUnit |
 | TC-SUP-003 | RF-35/RF-07 | Entrada externa con proveedor inexistente/inactivo | Integración | JUnit/Testcontainers | 422/409; no modifica stock | JUnit |
 | TC-SUP-004 | RF-35/RNF-07 | `SupplierUpdated` redelivered | Mensajería | RabbitMQ/Testcontainers | `processed_event` evita doble proyección | JUnit |
+| TC-SUP-005 | RF-35/CUS-31 | API de proveedores | API/Integración | MockMvc/JUnit | POST/GET/PUT, búsqueda literal, filtros, página/orden, estados y 400/401/403/404/409 | JUnit |
+| TC-SUP-006 | RF-35/CUS-31/RNF-14 | Versión, transiciones y no-op | Integración | JUnit/PostgreSQL | update condicional; no-op sin versión/outbox; desactivar/reactivar emite evento correcto | JUnit |
+| TC-SUP-007 | RF-35/ADR-007/RNF-07 | Outbox y publicación Supplier v1 | Integración/Mensajería | JUnit/RabbitMQ | atomicidad/rollback, schemas, routing, persistencia, confirm, retry y regresión ProductCreated | JUnit |
 | TC-PROJ-001 | RNF-05/07 | Catalog no disponible durante confirmación | Integración | WireMock/Testcontainers | Inventory usa product_ref/supplier_ref local; no dependencia REST | JUnit |
 | TC-PROJ-002 | RNF-07 | ProductUpdated redelivered | Mensajería | RabbitMQ/Testcontainers | processed_event evita doble proyección | JUnit |
 | TC-COUNT-001 | RF-33 | Conteo con diferencia | Integración | JUnit | guarda diferencia; stock no cambia hasta ajuste | JUnit |

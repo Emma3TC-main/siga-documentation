@@ -1036,6 +1036,14 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 4. Inventory consume el evento de forma idempotente y actualiza `inventory.supplier_ref`.
 5. Un proveedor desactivado conserva su historial, pero no debe seleccionarse para una nueva recepción externa.
 
+**Contrato HTTP v1.2 aprobado:** todos los endpoints requieren `SUPPLIER_MANAGE`. POST crea activo y devuelve `201 SupplierResponse`; `active` omitido o `true` es válido y `false` produce `400 VALIDATION_ERROR`. El detalle devuelve activos e inactivos o `404 SUPPLIER_NOT_FOUND`. Autenticación/autorización usa `401 AUTH_INVALID` y `403 AUTH_FORBIDDEN`; duplicar `code` o `taxId` produce `409 DATA_CONFLICT`.
+
+La lista usa `page=0`, `size=20` y rango `1..100`; admite `code,asc|code,desc|businessName,asc|businessName,desc`, defecto `code,asc`, siempre con `id ASC` como desempate. `q` busca una subcadena literal sin distinguir mayúsculas en `code`, `taxId`, `businessName` o `tradeName`; `%` y `_` son literales. Los filtros se combinan con AND y omitir `active` incluye ambos estados. Sin coincidencias retorna `200`, `content: []` y metadatos efectivos.
+
+PUT reemplaza los campos editables y exige `active` y `expectedVersion`. Una versión distinta retorna `409 VERSION_CONFLICT` sin mutación ni evento. Un no-op comprueba versión y devuelve el recurso actual sin incrementar `version` ni insertar Outbox. Una mutación incrementa versión: `true→false` emite `SupplierDisabled`; `false→true` y otros cambios emiten `SupplierUpdated`. No existe DELETE ni consulta a Inventory para autorizar la edición.
+
+Cada mutación efectiva confirma proveedor y Outbox en una transacción. `SupplierCreated`, `SupplierUpdated` y `SupplierDisabled` v1 usan el UUID Outbox como `eventId`, sobre común, `aggregateType=Supplier`, `schemaVersion=1`, `producer=catalog-service` y payload `{supplier:{id,code,taxId,businessName,active,version}}`. Sus routing keys en `siga.events` son `catalog.supplier.created.v1`, `catalog.supplier.updated.v1` y `catalog.supplier.disabled.v1`. La entrega es al menos una vez; el futuro consumidor Inventory deduplica por `eventId`.
+
 **Criterios de prueba mínimos:**
 
 - Alta y actualización válidas.

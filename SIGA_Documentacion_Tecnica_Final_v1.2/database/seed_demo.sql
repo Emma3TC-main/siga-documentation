@@ -1,4 +1,4 @@
--- SIGA demo seed aligned with physical_model.sql v1.1
+-- SIGA demo seed aligned with physical_model.sql v1.2
 -- DEV/TEST only. Password hash is a placeholder and must be replaced by an Argon2id hash in application bootstrap.
 
 INSERT INTO iam.permission(id,code,description) VALUES
@@ -10,7 +10,8 @@ INSERT INTO iam.permission(id,code,description) VALUES
 ('10000000-0000-0000-0000-000000000006','AUDIT_READ','Consultar auditoría'),
 ('10000000-0000-0000-0000-000000000007','REPORT_READ','Consultar reportes'),
 ('10000000-0000-0000-0000-000000000008','USER_MANAGE','Gestionar usuarios'),
-('10000000-0000-0000-0000-000000000009','ROLE_MANAGE','Gestionar roles');
+('10000000-0000-0000-0000-000000000009','ROLE_MANAGE','Gestionar roles'),
+('10000000-0000-0000-0000-000000000010','SUPPLIER_MANAGE','Gestionar proveedores');
 
 INSERT INTO iam.role(id,code,name) VALUES
 ('11000000-0000-0000-0000-000000000001','ADMIN','Administrador'),

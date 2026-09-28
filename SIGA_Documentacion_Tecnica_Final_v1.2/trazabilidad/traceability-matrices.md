@@ -182,9 +182,9 @@
 | UI-W03 | Admin/Supervisor | GET /dashboard |
 | UI-W04 | Admin | /users |
 | UI-W05 | Admin | /roles |
-| UI-W06 | Admin | /categories |
-| UI-W07 | Admin/Encargado | /products |
-| UI-W08 | Admin | /units |
+| UI-W06 | Admin | GET/POST /categories; GET devuelve arreglo directo code ASC con activos/inactivos |
+| UI-W07 | Admin/Encargado | /products; selectores de categoría/UoM solo activos |
+| UI-W08 | Admin | GET/POST /units; GET devuelve arreglo directo code ASC con activos/inactivos |
 | UI-W08B | Admin/Autorizado | /suppliers |
 | UI-W09 | Autorizado | GET /inventory |
 | UI-W10 | Admin/Supervisor | /locations |
@@ -241,6 +241,7 @@
 | RF-04/05 | `catalog.category`, `catalog.product` |
 | RF-35 | `catalog.supplier`, `inventory.supplier_ref`, `inventory.movement`, `analytics.movement_projection` |
 | RF-23 | `catalog.unit_measure`, `catalog.unit_conversion`, `inventory.product_unit_conversion_ref` |
+| RF-05/RF-23 | `api/product-created-v1.schema.json`, `catalog.outbox_event`, `inventory.product_ref`, `inventory.product_unit_conversion_ref` |
 | RF-06/09/11/12 | `inventory.product_ref`, `inventory.stock_balance`, `inventory.location` |
 | RF-07/08/10/25/26 | `inventory.movement`, `movement_detail`, `stock_balance`, `outbox_event` |
 | RF-27 | `inventory.lot`, `stock_balance`, `movement_detail` |

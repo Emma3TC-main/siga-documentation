@@ -397,7 +397,7 @@ DER-01..DER-09 + UML + OpenAPI + tests
 Las FK sólidas existen solo dentro del mismo schema. Las relaciones externas se representan en DER conceptual/lógico como UUID/evento/proyección, pero **no se convierten en FK cross-schema**.
 
 ## 5.11 Proyecciones de Catálogo en Inventory
-`inventory.product_ref` contiene SKU, tipo, unidades, stock mínimo y flags de trazabilidad necesarios para confirmar movimientos sin dependencia REST. `inventory.product_unit_conversion_ref` conserva conversiones aplicables. `inventory.supplier_ref` conserva la referencia mínima de proveedor requerida para validar recepciones externas. Estas proyecciones se actualizan con eventos de Catalog (`ProductCreated/Updated` y `SupplierCreated/Updated/Disabled`); `inventory.processed_event` hace idempotente el consumidor.
+`inventory.product_ref` contiene SKU, tipo, unidades, stock mínimo y flags de trazabilidad necesarios para confirmar movimientos sin dependencia REST. `inventory.product_unit_conversion_ref` conserva conversiones aplicables. `inventory.supplier_ref` conserva la referencia mínima de proveedor requerida para validar recepciones externas. Estas proyecciones se actualizan con eventos de Catalog (`ProductCreated/Updated` y `SupplierCreated/Updated/Disabled`); `inventory.processed_event` hace idempotente el consumidor. `ProductCreated v1` transporta códigos de UoM, no sus IDs internos, y usa la versión del producto como `source_version` de ambas proyecciones.
 
 Estas tablas **no son un segundo maestro**: Catalog sigue siendo autoridad y `source_version` permite detectar/reconciliar desactualización.
 
@@ -445,8 +445,8 @@ Versionado /api/v1. Recursos en sustantivos; comandos de dominio explícitos com
 | GET/POST | /api/v1/users | IAM | Usuarios |
 | GET/POST | /api/v1/roles | IAM | Roles/permisos |
 | GET/POST | /api/v1/products | CAT | Productos |
-| GET/POST | /api/v1/categories | CAT | Categorías |
-| GET/POST | /api/v1/units | CAT | UoM |
+| GET/POST | /api/v1/categories | CAT | GET: arreglo directo `{id,code,name,categoryType,active}`, activos/inactivos, `code ASC`, sin filtros/paginación |
+| GET/POST | /api/v1/units | CAT | GET: arreglo directo `{id,code,name,symbol,dimension,active}`, activos/inactivos, `code ASC`, sin filtros/paginación |
 | GET/POST | /api/v1/suppliers | CAT | Proveedores |
 | GET/PUT | /api/v1/suppliers/{id} | CAT | Consulta/actualización de proveedor |
 | GET | /api/v1/inventory | INV | Stock |
@@ -667,16 +667,18 @@ Elegido sobre Kafka porque SIGA requiere mensajería confiable de volumen modera
 }
 ```
 
+`ProductCreated v1` se define en `api/product-created-v1.schema.json`: `eventId` es el UUID de `catalog.outbox_event.id`, `aggregateType=Product`, `aggregateId` es el producto, `schemaVersion=1` y `producer=catalog-service`. `correlationId` es el UUID ya resuelto para el request: Catalog conserva un `X-Correlation-ID` UUID válido o genera uno cuando falta/no es UUID; no introduce conversión o rechazo adicional. `causationId` puede omitirse para un comando HTTP raíz. Los números `minStock` y `factor` son decimales con escala máxima seis.
+
 ## 11.4 Transactional Outbox por productor
 El patrón aplica a todo servicio que produce eventos relevantes: `iam.outbox_event`, `catalog.outbox_event`, `inventory.outbox_event` y `evidence.outbox_event`. Cada tabla pertenece al mismo schema que el agregado modificado. No existe Outbox compartido.
 
-En Inventory, el mismo commit que stock/movimiento inserta `inventory.outbox_event`. En Catalog, producto/conversiones + outbox se confirman localmente; en IAM, usuario/RBAC + outbox; en Evidence, metadata + outbox. Si RabbitMQ cae, el negocio confirmado permanece correcto y el publisher reintenta, eliminando la ventana DB-commit/event-lost.
+En Inventory, el mismo commit que stock/movimiento inserta `inventory.outbox_event`. En Catalog, producto/conversiones + outbox se confirman localmente; en IAM, usuario/RBAC + outbox; en Evidence, metadata + outbox. Si RabbitMQ cae, el negocio confirmado permanece correcto y el publisher reintenta, eliminando la ventana DB-commit/event-lost. El append `PENDING` es transaccional; el publisher posterior publica al menos una vez, por lo que los consumidores deduplican.
 
 ## 11.5 Consumidor idempotente por ownership
 RabbitMQ puede redeliver. Cada consumidor registra `event_id` procesado en **su propio schema** y los duplicados se ACK sin repetir efectos: `inventory.processed_event` para la proyección de Catalog, `audit.processed_event` para auditoría/notificaciones y `analytics.processed_event` para read models. Ningún consumidor escribe la tabla `processed_event` de otro servicio.
 
 ## 11.6 Confiabilidad
-Durable exchange/queue, persistent messages, publisher confirms, ACK manual, retry/backoff y DLQ. DLQ>0 genera alerta. Management no público.
+Durable exchange/queue, persistent messages, publisher confirms, ACK manual, retry/backoff y DLQ. DLQ>0 genera alerta. Management no público. Para `ProductCreated v1`, el exchange topic durable es `siga.events` y la routing key es `catalog.product.created.v1`; Inventory enlaza `catalog.product.created.#`. Esta topología entrega al menos una vez, no exactamente una vez.
 
 ## 11.7 Correlation ID
 Gateway crea/propaga X-Correlation-ID; servicios/eventos lo conservan. Sirve para reconstruir Web→Gateway→Inventory→RabbitMQ→Audit y se incluye en Problem Details/logs.
@@ -876,9 +878,9 @@ Login→MFA→Dashboard→módulo. Inventario: búsqueda→producto/activo→ubi
 | UI-W03 | Dashboard | /dashboard | Admin/Supervisor | KPIs/alertas | GET /dashboard |
 | UI-W04 | Usuarios | /users | Admin | Tabla/CRUD lógico | /users |
 | UI-W05 | Roles | /roles | Admin | Roles/permisos | /roles |
-| UI-W06 | Categorías | /catalog/categories | Admin | CRUD | /categories |
-| UI-W07 | Productos | /catalog/products | Admin/Encargado | SKU/UoM/JSONB/trazabilidad | /products |
-| UI-W08 | Unidades | /catalog/units | Admin | UoM/conversión | /units |
+| UI-W06 | Categorías | /catalog/categories | Admin | CRUD; lista code ASC, activos/inactivos | /categories |
+| UI-W07 | Productos | /catalog/products | Admin/Encargado | SKU/UoM/JSONB/trazabilidad; selectores solo maestros activos | /products |
+| UI-W08 | Unidades | /catalog/units | Admin | UoM/conversión; lista code ASC, activos/inactivos | /units |
 | UI-W09 | Inventario | /inventory | Autorizado | Stock/filtros/ubicación | GET /inventory |
 | UI-W10 | Ubicaciones | /locations | Admin/Supervisor | Árbol jerárquico | /locations |
 | UI-W11 | Lotes/Activos | /lots /assets | Encargado | Lote/serie/estado | inventory |
@@ -1110,6 +1112,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Excepciones relevantes | Código duplicado, categoría referenciada no se elimina físicamente |
 | Diagrama(s) | UML-03 |
 
+**Contrato de consulta aprobado:** `GET /api/v1/categories` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, categoryType, active}`. Incluye categorías activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión.
+
 **Flujo base técnico-funcional:**
 
 1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
@@ -1138,10 +1142,18 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Endpoint(s) | `GET/POST/PATCH /api/v1/products` |
 | Permiso baseline | `PRODUCT_WRITE` |
 | Eventos/asíncronos | ProductCreated; ProductUpdated |
-| Precondiciones | Categoría/UoM válidas |
+| Precondiciones | Categoría/UoM válidas y activas |
 | Postcondiciones | Producto persistido y proyectable a Inventory |
-| Excepciones relevantes | SKU duplicado, factor inválido, flags contradictorios |
+| Excepciones relevantes | SKU duplicado, factor inválido |
 | Diagrama(s) | SEQ-03; UML-03 |
+
+**Regla de selectores aprobada:** los selectores de categoría y UoM para Product muestran solo registros activos. Cuando se implemente Product, MS-CAT deberá validar también en backend que `categoryId`, `storageUnitId` y `baseUnitId` correspondan a maestros activos.
+
+**Alta y conversiones aprobadas:** si `storageUnitId` y `baseUnitId` difieren, el request debe incluir una conversión activa directa `storageUnitId → baseUnitId`. `factor` significa `cantidad_origen × factor = cantidad_destino`. `dimension` es informativa y no invalida por sí sola una conversión entre dos UoM activas. Cada UoM usada por una conversión debe existir y estar activa; se mantienen `factor > 0`, unidades distintas y unicidad por producto/origen/destino.
+
+**Flags de trazabilidad v1.2:** `requiresLot`, `requiresHeatNumber`, `requiresExpiry` y `requiresSerial` son booleanos independientes. Cualquier combinación de sus valores es válida, incluidos `requiresHeatNumber=true` con `requiresLot=false`; cada requisito se aplica individualmente en Inventory cuando corresponde. Se retira “flags contradictorios” de las excepciones porque las fuentes v1.2 no definen ninguna combinación incompatible.
+
+**Referencias y evento:** categoría o UoM inexistente devuelve `404` Problem Details; una referencia existente pero inactiva devuelve `409` Problem Details. En el mismo commit local de producto y conversiones se inserta `catalog.outbox_event(ProductCreated, schema_version=1, status=PENDING)`. La publicación RabbitMQ ocurre después, es al menos una vez y Inventory deduplica por `inventory.processed_event`; no forma parte de la respuesta HTTP. El contrato de mensaje es `api/product-created-v1.schema.json`.
 
 **Flujo base técnico-funcional:**
 
@@ -1373,6 +1385,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Postcondiciones | Umbral persistido y proyectado |
 | Excepciones relevantes | Valor negativo/incompatible |
 | Diagrama(s) | UML-03 |
+
+**Contrato de consulta aprobado:** `GET /api/v1/units` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, symbol, dimension, active}`. Incluye unidades activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión. Las conversiones siguen incluidas/versionadas con Product y no forman parte de esta respuesta.
 
 **Flujo base técnico-funcional:**
 
@@ -1736,6 +1750,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Postcondiciones | Una o más conversiones from/to/factor>0 persistidas y proyectables a Inventory |
 | Excepciones relevantes | Factor <=0, unidad incompatible |
 | Diagrama(s) | UML-03 |
+
+**Regla de conversión con Product:** cuando la unidad de almacenamiento y la base difieren, existe una conversión activa directa almacenamiento → base y `cantidad_origen × factor = cantidad_destino`. `dimension` solo describe la UoM; no prohíbe conversiones entre dimensiones distintas. “Unidad incompatible” requiere una política futura explícita y no se infiere de `dimension`.
 
 **Flujo base técnico-funcional:**
 

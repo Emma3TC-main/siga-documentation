@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SIGA ProductCreated v1",
+  "type": "object",
+  "required": ["eventId", "eventType", "schemaVersion", "aggregateType", "aggregateId", "occurredAt", "correlationId", "producer", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "const": "ProductCreated" },
+    "schemaVersion": { "const": 1 },
+    "aggregateType": { "const": "Product" },
+    "aggregateId": { "type": "string", "format": "uuid" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "causationId": { "type": "string", "format": "uuid" },
+    "producer": { "const": "catalog-service" },
+    "payload": {
+      "type": "object",
+      "required": ["product", "conversions"],
+      "properties": {
+        "product": {
+          "type": "object",
+          "required": ["id", "sku", "productType", "storageUnitCode", "baseUnitCode", "minStock", "requiresLot", "requiresHeatNumber", "requiresExpiry", "requiresSerial", "active", "version"],
+          "properties": {
+            "id": { "type": "string", "format": "uuid" },
+            "sku": { "type": "string", "maxLength": 80 },
+            "productType": { "enum": ["MATERIAL", "INSUMO", "REPUESTO", "MAQUINARIA"] },
+            "storageUnitCode": { "type": "string", "maxLength": 20 },
+            "baseUnitCode": { "type": "string", "maxLength": 20 },
+            "minStock": { "type": "number", "minimum": 0, "multipleOf": 0.000001 },
+            "requiresLot": { "type": "boolean" },
+            "requiresHeatNumber": { "type": "boolean" },
+            "requiresExpiry": { "type": "boolean" },
+            "requiresSerial": { "type": "boolean" },
+            "active": { "type": "boolean" },
+            "version": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "conversions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["fromUnitCode", "toUnitCode", "factor", "active"],
+            "properties": {
+              "fromUnitCode": { "type": "string", "maxLength": 20 },
+              "toUnitCode": { "type": "string", "maxLength": 20 },
+              "factor": { "type": "number", "exclusiveMinimum": 0, "multipleOf": 0.000001 },
+              "active": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

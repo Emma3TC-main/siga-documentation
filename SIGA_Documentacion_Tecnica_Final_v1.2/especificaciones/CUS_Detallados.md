@@ -117,6 +117,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Excepciones relevantes | Código duplicado, categoría referenciada no se elimina físicamente |
 | Diagrama(s) | UML-03 |
 
+**Contrato de consulta aprobado:** `GET /api/v1/categories` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, categoryType, active}`. Incluye categorías activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión.
+
 **Flujo base técnico-funcional:**
 
 1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
@@ -145,10 +147,18 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Endpoint(s) | `GET/POST/PATCH /api/v1/products` |
 | Permiso baseline | `PRODUCT_WRITE` |
 | Eventos/asíncronos | ProductCreated; ProductUpdated |
-| Precondiciones | Categoría/UoM válidas |
+| Precondiciones | Categoría/UoM válidas y activas |
 | Postcondiciones | Producto persistido y proyectable a Inventory |
-| Excepciones relevantes | SKU duplicado, factor inválido, flags contradictorios |
+| Excepciones relevantes | SKU duplicado, factor inválido |
 | Diagrama(s) | SEQ-03; UML-03 |
+
+**Regla de selectores aprobada:** los selectores de categoría y UoM para Product muestran solo registros activos. Cuando se implemente Product, MS-CAT deberá validar también en backend que `categoryId`, `storageUnitId` y `baseUnitId` correspondan a maestros activos.
+
+**Alta y conversiones aprobadas:** si `storageUnitId` y `baseUnitId` difieren, el request debe incluir una conversión activa directa `storageUnitId → baseUnitId`. `factor` significa `cantidad_origen × factor = cantidad_destino`. `dimension` es informativa y no invalida por sí sola una conversión entre dos UoM activas. Cada UoM usada por una conversión debe existir y estar activa; se mantienen `factor > 0`, unidades distintas y unicidad por producto/origen/destino.
+
+**Flags de trazabilidad v1.2:** `requiresLot`, `requiresHeatNumber`, `requiresExpiry` y `requiresSerial` son booleanos independientes. Cualquier combinación de sus valores es válida, incluidos `requiresHeatNumber=true` con `requiresLot=false`; cada requisito se aplica individualmente en Inventory cuando corresponde. Se retira “flags contradictorios” de las excepciones porque las fuentes v1.2 no definen ninguna combinación incompatible.
+
+**Referencias y evento:** categoría o UoM inexistente devuelve `404` Problem Details; una referencia existente pero inactiva devuelve `409` Problem Details. En el mismo commit local de producto y conversiones se inserta `catalog.outbox_event(ProductCreated, schema_version=1, status=PENDING)`. La publicación RabbitMQ ocurre después, es al menos una vez y Inventory deduplica por `inventory.processed_event`; no forma parte de la respuesta HTTP. El contrato de mensaje es `api/product-created-v1.schema.json`.
 
 **Flujo base técnico-funcional:**
 
@@ -382,6 +392,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Postcondiciones | Umbral persistido y proyectado |
 | Excepciones relevantes | Valor negativo/incompatible |
 | Diagrama(s) | UML-03 |
+
+**Contrato de consulta aprobado:** `GET /api/v1/units` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, symbol, dimension, active}`. Incluye unidades activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión. Las conversiones siguen incluidas/versionadas con Product y no forman parte de esta respuesta.
 
 **Flujo base técnico-funcional:**
 
@@ -745,6 +757,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Postcondiciones | Una o más conversiones `from/to/factor>0` persistidas por producto y proyectables a Inventory |
 | Excepciones relevantes | Factor <=0, unidad incompatible |
 | Diagrama(s) | UML-03 |
+
+**Regla de conversión con Product:** cuando la unidad de almacenamiento y la base difieren, existe una conversión activa directa almacenamiento → base y `cantidad_origen × factor = cantidad_destino`. `dimension` solo describe la UoM; no prohíbe conversiones entre dimensiones distintas. “Unidad incompatible” requiere una política futura explícita y no se infiere de `dimension`.
 
 **Flujo base técnico-funcional:**
 

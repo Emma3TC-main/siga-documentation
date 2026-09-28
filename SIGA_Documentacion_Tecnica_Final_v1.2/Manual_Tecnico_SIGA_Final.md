@@ -444,7 +444,7 @@ Versionado /api/v1. Recursos en sustantivos; comandos de dominio explícitos com
 | POST | /api/v1/auth/refresh | IAM | Rotar refresh |
 | GET/POST | /api/v1/users | IAM | Usuarios |
 | GET/POST | /api/v1/roles | IAM | Roles/permisos |
-| GET/POST | /api/v1/products | CAT | Productos |
+| GET/POST | /api/v1/products | CAT | GET paginado: `page` base cero, `size` 1..100, sort/filtros definidos en Catalog OpenAPI; incluye activos/inactivos si no se filtra |
 | GET/POST | /api/v1/categories | CAT | GET: arreglo directo `{id,code,name,categoryType,active}`, activos/inactivos, `code ASC`, sin filtros/paginación |
 | GET/POST | /api/v1/units | CAT | GET: arreglo directo `{id,code,name,symbol,dimension,active}`, activos/inactivos, `code ASC`, sin filtros/paginación |
 | GET/POST | /api/v1/suppliers | CAT | Proveedores |

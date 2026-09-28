@@ -154,6 +154,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 
 **Regla de selectores aprobada:** los selectores de categoría y UoM para Product muestran solo registros activos. Cuando se implemente Product, MS-CAT deberá validar también en backend que `categoryId`, `storageUnitId` y `baseUnitId` correspondan a maestros activos.
 
+**Consulta de productos aprobada:** `GET /api/v1/products` exige `PRODUCT_WRITE` y responde `200` con `{content, page, size, totalElements}`. `page` es base cero (defecto `0`); `size` tiene defecto `20` y rango `1..100`. `sort` tiene defecto `sku,asc` y admite `sku,asc`, `sku,desc`, `name,asc` y `name,desc`; `id ASC` es desempate estable. Los filtros opcionales `q`, `active`, `categoryId` y `productType` se combinan con AND. `q` busca subcadena sin distinción de mayúsculas en `sku` o `name` y trata `%`/`_` literalmente; al omitir `active` se incluyen registros activos e inactivos. Sin coincidencias devuelve `200` con `content: []` y los metadatos efectivos. `GET /api/v1/products/{id}` devuelve el mismo `ProductResponse` para un producto activo o inactivo; un UUID inexistente devuelve `404 PRODUCT_NOT_FOUND` Problem Details.
+
 **Alta y conversiones aprobadas:** si `storageUnitId` y `baseUnitId` difieren, el request debe incluir una conversión activa directa `storageUnitId → baseUnitId`. `factor` significa `cantidad_origen × factor = cantidad_destino`. `dimension` es informativa y no invalida por sí sola una conversión entre dos UoM activas. Cada UoM usada por una conversión debe existir y estar activa; se mantienen `factor > 0`, unidades distintas y unicidad por producto/origen/destino.
 
 **Flags de trazabilidad v1.2:** `requiresLot`, `requiresHeatNumber`, `requiresExpiry` y `requiresSerial` son booleanos independientes. Cualquier combinación de sus valores es válida, incluidos `requiresHeatNumber=true` con `requiresLot=false`; cada requisito se aplica individualmente en Inventory cuando corresponde. Se retira “flags contradictorios” de las excepciones porque las fuentes v1.2 no definen ninguna combinación incompatible.
@@ -526,6 +528,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Postcondiciones | Resultados server-side paginados |
 | Excepciones relevantes | Filtro no soportado/consulta inválida |
 | Diagrama(s) | N/A |
+
+Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/products`; otros servicios definen sus filtros en su propio contrato OpenAPI.
 
 **Flujo base técnico-funcional:**
 

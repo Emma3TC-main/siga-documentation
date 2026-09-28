@@ -19,7 +19,7 @@ Un publisher independiente reclama eventos `PENDING`, publica mensajes persisten
 
 ## Aplicación
 - IAM: eventos de usuario/rol que deban auditarse.
-- Catalog: `ProductCreated/Updated` y cambios de conversiones/proyección.
+- Catalog: `ProductCreated/Updated` y cambios de conversiones/proyección. Para `ProductCreated v1`, el append de `catalog.outbox_event` ocurre con producto y conversiones en la misma transacción; el publisher posterior entrega al menos una vez y Inventory deduplica por `processed_event`.
 - Inventory: `MovementConfirmed`, `StockBelowMinimum`, `InventoryAdjusted`, etc.
 - Evidence: `EvidenceUploaded`.
 

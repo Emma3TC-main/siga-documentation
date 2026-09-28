@@ -16,6 +16,10 @@
 | TC-UOM-002 | RF-23 | Cambiar conversión después del movimiento | Integración | JUnit | histórico conserva factor aplicado | JUnit |
 | TC-CAT-001 | RF-04/CUS-04 | Listar categorías | API/Integración | REST Assured/JUnit | 200, arreglo `{id,code,name,categoryType,active}`, activas/inactivas y `code ASC`; 401/403 según JWT/permisos | API report/JUnit |
 | TC-UOM-003 | RF-23/CUS-23 | Listar unidades | API/Integración | REST Assured/JUnit | 200, arreglo `{id,code,name,symbol,dimension,active}`, activas/inactivas y `code ASC`; 401/403 según JWT/permisos | API report/JUnit |
+| TC-PROD-001 | RF-05/RF-23/CUS-05 | Alta de producto | Integración | JUnit | 201; producto, conversiones y `ProductCreated v1` PENDING en un commit; UoM storage→base directa si difieren; precisión 18,6 | JUnit |
+| TC-PROD-002 | RF-05/CUS-05 | Referencia Product inexistente/inactiva | API/Integración | MockMvc/JUnit | 404 para categoría/UoM inexistente; 409 para referencia inactiva; sin producto ni outbox | JUnit |
+| TC-PROD-003 | ADR-007/RNF-07 | Redelivery ProductCreated | Mensajería | Testcontainers | Inventory deduplica `eventId` mediante `processed_event`; entrega al menos una vez | JUnit |
+| TC-PROD-004 | RF-05/RF-27/RF-28/CUS-05 | Flags de trazabilidad independientes | Integración | JUnit | Acepta una combinación válida, incluso `requiresHeatNumber=true` con `requiresLot=false`, y conserva cada booleano | JUnit |
 | TC-SUP-001 | RF-35 | Alta con taxId/RUC duplicado | API/Integración | REST Assured/JUnit | 409; no crea duplicado | API report |
 | TC-SUP-002 | RF-35/RF-07/RNF-06 | Entrada externa con proveedor activo | Integración | JUnit/Testcontainers | valida `supplier_ref`, confirma y conserva snapshot de proveedor | JUnit |
 | TC-SUP-003 | RF-35/RF-07 | Entrada externa con proveedor inexistente/inactivo | Integración | JUnit/Testcontainers | 422/409; no modifica stock | JUnit |

@@ -241,6 +241,7 @@
 | RF-04/05 | `catalog.category`, `catalog.product` |
 | RF-35 | `catalog.supplier`, `inventory.supplier_ref`, `inventory.movement`, `analytics.movement_projection` |
 | RF-23 | `catalog.unit_measure`, `catalog.unit_conversion`, `inventory.product_unit_conversion_ref` |
+| RF-05/RF-23 | `api/product-created-v1.schema.json`, `catalog.outbox_event`, `inventory.product_ref`, `inventory.product_unit_conversion_ref` |
 | RF-06/09/11/12 | `inventory.product_ref`, `inventory.stock_balance`, `inventory.location` |
 | RF-07/08/10/25/26 | `inventory.movement`, `movement_detail`, `stock_balance`, `outbox_event` |
 | RF-27 | `inventory.lot`, `stock_balance`, `movement_detail` |

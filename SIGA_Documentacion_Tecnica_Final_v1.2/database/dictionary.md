@@ -25,6 +25,7 @@
 | `created_at` | `timestamptz NOT NULL DEFAULT now()` |
 | `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
 
+
 **Restricciones de tabla:**
 - `CHECK (NOT mfa_enabled OR mfa_secret_encrypted IS NOT NULL)`
 
@@ -240,6 +241,8 @@
 
 **Índices relevantes:**
 - `idx_catalog_outbox_pending ON catalog.outbox_event(status, next_attempt_at, occurred_at) WHERE status='PENDING'`
+
+**Convención ProductCreated v1:** para el alta de producto, `id` es `eventId`, `aggregate_type='Product'`, `aggregate_id` es el ID del producto, `event_type='ProductCreated'`, `schema_version=1` y `correlation_id` es el UUID resuelto para el request. La columna `payload` guarda únicamente la propiedad `payload` del contrato `api/product-created-v1.schema.json`; el publisher posterior formará el sobre con esos metadatos de la fila (`eventId`, tipo, versión, agregado, correlación y `occurredAt`) y `producer='catalog-service'`. El registro `PENDING` se inserta en el commit local y su publicación posterior es al menos una vez.
 
 ## inventory.location
 **Owner:** `inventory-service`  
@@ -803,4 +806,3 @@
 | `last_event_id` | `uuid` |
 | `last_occurred_at` | `timestamptz` |
 | `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
-

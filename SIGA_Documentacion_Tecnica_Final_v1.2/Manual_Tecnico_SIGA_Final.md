@@ -445,8 +445,8 @@ Versionado /api/v1. Recursos en sustantivos; comandos de dominio explícitos com
 | GET/POST | /api/v1/users | IAM | Usuarios |
 | GET/POST | /api/v1/roles | IAM | Roles/permisos |
 | GET/POST | /api/v1/products | CAT | Productos |
-| GET/POST | /api/v1/categories | CAT | Categorías |
-| GET/POST | /api/v1/units | CAT | UoM |
+| GET/POST | /api/v1/categories | CAT | GET: arreglo directo `{id,code,name,categoryType,active}`, activos/inactivos, `code ASC`, sin filtros/paginación |
+| GET/POST | /api/v1/units | CAT | GET: arreglo directo `{id,code,name,symbol,dimension,active}`, activos/inactivos, `code ASC`, sin filtros/paginación |
 | GET/POST | /api/v1/suppliers | CAT | Proveedores |
 | GET/PUT | /api/v1/suppliers/{id} | CAT | Consulta/actualización de proveedor |
 | GET | /api/v1/inventory | INV | Stock |
@@ -876,9 +876,9 @@ Login→MFA→Dashboard→módulo. Inventario: búsqueda→producto/activo→ubi
 | UI-W03 | Dashboard | /dashboard | Admin/Supervisor | KPIs/alertas | GET /dashboard |
 | UI-W04 | Usuarios | /users | Admin | Tabla/CRUD lógico | /users |
 | UI-W05 | Roles | /roles | Admin | Roles/permisos | /roles |
-| UI-W06 | Categorías | /catalog/categories | Admin | CRUD | /categories |
-| UI-W07 | Productos | /catalog/products | Admin/Encargado | SKU/UoM/JSONB/trazabilidad | /products |
-| UI-W08 | Unidades | /catalog/units | Admin | UoM/conversión | /units |
+| UI-W06 | Categorías | /catalog/categories | Admin | CRUD; lista code ASC, activos/inactivos | /categories |
+| UI-W07 | Productos | /catalog/products | Admin/Encargado | SKU/UoM/JSONB/trazabilidad; selectores solo maestros activos | /products |
+| UI-W08 | Unidades | /catalog/units | Admin | UoM/conversión; lista code ASC, activos/inactivos | /units |
 | UI-W09 | Inventario | /inventory | Autorizado | Stock/filtros/ubicación | GET /inventory |
 | UI-W10 | Ubicaciones | /locations | Admin/Supervisor | Árbol jerárquico | /locations |
 | UI-W11 | Lotes/Activos | /lots /assets | Encargado | Lote/serie/estado | inventory |
@@ -1110,6 +1110,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Excepciones relevantes | Código duplicado, categoría referenciada no se elimina físicamente |
 | Diagrama(s) | UML-03 |
 
+**Contrato de consulta aprobado:** `GET /api/v1/categories` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, categoryType, active}`. Incluye categorías activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión.
+
 **Flujo base técnico-funcional:**
 
 1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
@@ -1138,10 +1140,12 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Endpoint(s) | `GET/POST/PATCH /api/v1/products` |
 | Permiso baseline | `PRODUCT_WRITE` |
 | Eventos/asíncronos | ProductCreated; ProductUpdated |
-| Precondiciones | Categoría/UoM válidas |
+| Precondiciones | Categoría/UoM válidas y activas |
 | Postcondiciones | Producto persistido y proyectable a Inventory |
 | Excepciones relevantes | SKU duplicado, factor inválido, flags contradictorios |
 | Diagrama(s) | SEQ-03; UML-03 |
+
+**Regla de selectores aprobada:** los selectores de categoría y UoM para Product muestran solo registros activos. Cuando se implemente Product, MS-CAT deberá validar también en backend que `categoryId`, `storageUnitId` y `baseUnitId` correspondan a maestros activos.
 
 **Flujo base técnico-funcional:**
 
@@ -1373,6 +1377,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Postcondiciones | Umbral persistido y proyectado |
 | Excepciones relevantes | Valor negativo/incompatible |
 | Diagrama(s) | UML-03 |
+
+**Contrato de consulta aprobado:** `GET /api/v1/units` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, symbol, dimension, active}`. Incluye unidades activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión. Las conversiones siguen incluidas/versionadas con Product y no forman parte de esta respuesta.
 
 **Flujo base técnico-funcional:**
 

@@ -182,9 +182,9 @@
 | UI-W03 | Admin/Supervisor | GET /dashboard |
 | UI-W04 | Admin | /users |
 | UI-W05 | Admin | /roles |
-| UI-W06 | Admin | /categories |
-| UI-W07 | Admin/Encargado | /products |
-| UI-W08 | Admin | /units |
+| UI-W06 | Admin | GET/POST /categories; GET devuelve arreglo directo code ASC con activos/inactivos |
+| UI-W07 | Admin/Encargado | /products; selectores de categoría/UoM solo activos |
+| UI-W08 | Admin | GET/POST /units; GET devuelve arreglo directo code ASC con activos/inactivos |
 | UI-W08B | Admin/Autorizado | /suppliers |
 | UI-W09 | Autorizado | GET /inventory |
 | UI-W10 | Admin/Supervisor | /locations |

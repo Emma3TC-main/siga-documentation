@@ -14,6 +14,8 @@
 | TC-TRACE-001 | RF-27/28 | Asociar lote/asset de otro producto | DB/Integración | PostgreSQL | FK compuesta/validación rechaza | JUnit |
 | TC-UOM-001 | RF-23 | 2 cajas × factor 50 | Integración | JUnit | snapshot entered=2, factor=50, stockQty=100 | JUnit |
 | TC-UOM-002 | RF-23 | Cambiar conversión después del movimiento | Integración | JUnit | histórico conserva factor aplicado | JUnit |
+| TC-CAT-001 | RF-04/CUS-04 | Listar categorías | API/Integración | REST Assured/JUnit | 200, arreglo `{id,code,name,categoryType,active}`, activas/inactivas y `code ASC`; 401/403 según JWT/permisos | API report/JUnit |
+| TC-UOM-003 | RF-23/CUS-23 | Listar unidades | API/Integración | REST Assured/JUnit | 200, arreglo `{id,code,name,symbol,dimension,active}`, activas/inactivas y `code ASC`; 401/403 según JWT/permisos | API report/JUnit |
 | TC-SUP-001 | RF-35 | Alta con taxId/RUC duplicado | API/Integración | REST Assured/JUnit | 409; no crea duplicado | API report |
 | TC-SUP-002 | RF-35/RF-07/RNF-06 | Entrada externa con proveedor activo | Integración | JUnit/Testcontainers | valida `supplier_ref`, confirma y conserva snapshot de proveedor | JUnit |
 | TC-SUP-003 | RF-35/RF-07 | Entrada externa con proveedor inexistente/inactivo | Integración | JUnit/Testcontainers | 422/409; no modifica stock | JUnit |

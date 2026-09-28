@@ -63,9 +63,9 @@ Los menús se ocultan/deshabilitan por permisos para UX, pero la autorización r
 | UI-W03 | Dashboard | 6–8 KPI, alertas, entradas/salidas, disponibilidad | filtrar período, navegar detalle | sin data, parcial, servicio analítico degradado |
 | UI-W04 | Usuarios | tabla, estado, rol(es), búsqueda | alta, editar, desactivar | no borrado físico, permisos |
 | UI-W05 | Roles | roles + matriz de permisos | crear/editar/asignar | rol protegido/conflicto |
-| UI-W06 | Categorías | código, nombre, tipo, estado | CRUD lógico | duplicado/inactiva |
-| UI-W07 | Productos | SKU, nombre, categoría, UoM, flags trazabilidad, stock mínimo, atributos técnicos | crear/editar/desactivar | campos dinámicos por tipo |
-| UI-W08 | Unidades | código, símbolo, magnitud, conversiones por producto | crear/editar | factor >0/incompatible |
+| UI-W06 | Categorías | código, nombre, tipo, estado; lista `code ASC` con activas/inactivas | CRUD lógico | duplicado/inactiva |
+| UI-W07 | Productos | SKU, nombre, categoría, UoM, flags trazabilidad, stock mínimo, atributos técnicos; selectores solo de maestros activos | crear/editar/desactivar | campos dinámicos por tipo |
+| UI-W08 | Unidades | código, nombre, símbolo, magnitud, estado; lista `code ASC` con activas/inactivas; conversiones por producto | crear/editar | factor >0/incompatible |
 | UI-W09 | Inventario | DataGrid producto, total, ubicación, lote/serie, mínimo, costo si permiso | filtrar, detalle, iniciar movimiento | stale/refetch, sin stock, bajo mínimo |
 | UI-W10 | Ubicaciones | árbol jerárquico almacén/patio→posición | alta/editar/desactivar | prevenir ciclos; stock existente |
 | UI-W11 | Lotes/Activos | tabs/lists lote-colada-vencimiento / activo-serie-estado | registrar, mover, consultar historial | serie duplicada/vencido |

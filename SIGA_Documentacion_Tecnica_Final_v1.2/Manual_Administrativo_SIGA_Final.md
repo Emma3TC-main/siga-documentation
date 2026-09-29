@@ -319,6 +319,14 @@ Estados base sugeridos:
 - El sistema debe permitir identificar insumos vencidos o próximos a vencer.
 - La política de despacho puede considerar vencimiento cuando corresponda.
 
+## 8.6 Edición, desactivación y reactivación de productos
+
+La edición de un producto sustituye su ficha editable completa y su conjunto completo de conversiones. La pantalla debe cargar la versión vigente y enviarla como control de concurrencia; si otra sesión modificó antes el producto, SIGA rechaza la edición y exige recargar. Una solicitud que no cambia ningún valor conserva la versión, las fechas y las conversiones y no genera un evento administrativo nuevo.
+
+La desactivación es lógica: no borra el producto, existencias, lotes, activos, conversiones históricas ni movimientos. Puede desactivarse un producto aunque una categoría o unidad que ya utilizaba haya quedado inactiva; esas referencias solo pueden conservarse para dejar el producto inactivo, no sustituirse por otras referencias inactivas. La reactivación exige seleccionar categoría y unidades vigentes y presentar conversiones válidas. Inventory recibe el cambio de forma asíncrona y conserva sus referencias e historial; no existe consulta síncrona entre ambos esquemas durante la edición.
+
+SKU, nombre, categoría, tipo, unidades, stock mínimo, atributos técnicos y los cuatro indicadores de trazabilidad pueden editarse. Los indicadores `requiresLot`, `requiresHeatNumber`, `requiresExpiry` y `requiresSerial` siguen siendo independientes. Los cambios rigen las operaciones posteriores a la actualización de la proyección y no reescriben movimientos confirmados.
+
 ---
 
 # 9. Gestión de inventario, ubicaciones y existencias

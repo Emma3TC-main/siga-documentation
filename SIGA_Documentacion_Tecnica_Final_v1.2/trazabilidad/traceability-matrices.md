@@ -183,7 +183,7 @@
 | UI-W04 | Admin | /users |
 | UI-W05 | Admin | /roles |
 | UI-W06 | Admin | GET/POST /categories; GET devuelve arreglo directo code ASC con activos/inactivos |
-| UI-W07 | Admin/Encargado | /products; selectores de categoría/UoM solo activos |
+| UI-W07 | Admin/Encargado | GET/POST /products; GET/PUT /products/{id}; reemplazo completo con versión y selectores de categoría/UoM activos |
 | UI-W08 | Admin | GET/POST /units; GET devuelve arreglo directo code ASC con activos/inactivos |
 | UI-W08B | Admin/Autorizado | /suppliers |
 | UI-W09 | Autorizado | GET /inventory |
@@ -241,7 +241,7 @@
 | RF-04/05 | `catalog.category`, `catalog.product` |
 | RF-35 | `catalog.supplier`, `catalog.outbox_event`, `api/supplier-*-v1.schema.json`, `inventory.supplier_ref`, `inventory.movement`, `analytics.movement_projection` |
 | RF-23 | `catalog.unit_measure`, `catalog.unit_conversion`, `inventory.product_unit_conversion_ref` |
-| RF-05/RF-23 | `api/product-created-v1.schema.json`, `catalog.outbox_event`, `inventory.product_ref`, `inventory.product_unit_conversion_ref` |
+| RF-05/RF-23 | `api/product-created-v1.schema.json`, `api/product-updated-v1.schema.json`, `catalog.outbox_event`, `inventory.product_ref`, `inventory.product_unit_conversion_ref`, `analytics.product_projection` |
 | RF-06/09/11/12 | `inventory.product_ref`, `inventory.stock_balance`, `inventory.location` |
 | RF-07/08/10/25/26 | `inventory.movement`, `movement_detail`, `stock_balance`, `outbox_event` |
 | RF-27 | `inventory.lot`, `stock_balance`, `movement_detail` |
@@ -261,7 +261,8 @@
 | Activo serializado en una sola ubicación positiva | DER-06, UML-04 | TC-ASSET-001 |
 | Lote/activo pertenece al mismo producto | DER-06 | TC-TRACE-001 |
 | Conversión histórica reproducible | DER-05/06, SEQ-03 | TC-UOM-001 |
-| Inventory confirma sin REST a Catalog | C4-04, SEQ-03/04 | TC-PROJ-001/TC-SUP-002 |
+| Inventory confirma sin REST a Catalog | C4-04, SEQ-03/04 | TC-PROJ-001/TC-PROJ-002/TC-SUP-002 |
+| Reemplazo Product con concurrencia/no-op y Outbox atómico | UML-03, ADR-007 | TC-PROD-006/007/008 |
 | Recepción externa conserva proveedor histórico | DER-05/06/09, UML-03/04, BPMN-01 | TC-SUP-002/003 |
 | Idempotencia de comando | DER-06 | TC-INV-004 |
 | Outbox por productor | SEQ-11, ADR-007 | TC-EVT-001 |

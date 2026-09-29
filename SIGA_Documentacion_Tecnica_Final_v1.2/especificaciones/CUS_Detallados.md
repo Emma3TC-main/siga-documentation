@@ -144,10 +144,10 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-05,RF-23,RF-27,RF-28 |
 | HU | US-05 |
 | Servicio responsable | MS-CAT |
-| Endpoint(s) | `GET/POST/PATCH /api/v1/products` |
+| Endpoint(s) | `GET/POST /api/v1/products; GET/PUT /api/v1/products/{id}` |
 | Permiso baseline | `PRODUCT_WRITE` |
 | Eventos/asíncronos | ProductCreated; ProductUpdated |
-| Precondiciones | Categoría/UoM válidas y activas |
+| Precondiciones | `PRODUCT_WRITE`; referencias nuevas/modificadas activas; todas activas si el estado final es activo |
 | Postcondiciones | Producto persistido y proyectable a Inventory |
 | Excepciones relevantes | SKU duplicado, factor inválido |
 | Diagrama(s) | SEQ-03; UML-03 |
@@ -160,7 +160,13 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 
 **Flags de trazabilidad v1.2:** `requiresLot`, `requiresHeatNumber`, `requiresExpiry` y `requiresSerial` son booleanos independientes. Cualquier combinación de sus valores es válida, incluidos `requiresHeatNumber=true` con `requiresLot=false`; cada requisito se aplica individualmente en Inventory cuando corresponde. Se retira “flags contradictorios” de las excepciones porque las fuentes v1.2 no definen ninguna combinación incompatible.
 
-**Referencias y evento:** categoría o UoM inexistente devuelve `404` Problem Details; una referencia existente pero inactiva devuelve `409` Problem Details. En el mismo commit local de producto y conversiones se inserta `catalog.outbox_event(ProductCreated, schema_version=1, status=PENDING)`. La publicación RabbitMQ ocurre después, es al menos una vez y Inventory deduplica por `inventory.processed_event`; no forma parte de la respuesta HTTP. El contrato de mensaje es `api/product-created-v1.schema.json`.
+**Edición integral aprobada:** `PUT /api/v1/products/{id}` reemplaza el estado editable completo. El request exige `sku`, `name`, `categoryId`, `productType`, `storageUnitId`, `baseUnitId`, `minStock`, los cuatro flags de trazabilidad, `technicalAttributes`, `conversions`, `active` y `expectedVersion`; omitir cualquiera devuelve `400` y nunca significa conservar el valor anterior. `conversions` es el conjunto completo, por lo que las parejas omitidas dejan de pertenecer al producto. SKU, categoría, tipo, unidades, umbral, atributos, flags y estado son editables; v1.2 no impone inmutabilidad de SKU, igualdad entre `categoryType` y `productType` ni restricciones síncronas basadas en existencias de Inventory.
+
+**Concurrencia y no-op aprobados:** MS-CAT comprueba primero que el producto existe y luego compara `expectedVersion` con la versión persistida. Una versión obsoleta devuelve siempre `409 VERSION_CONFLICT`, incluso si el contenido coincide. Con versión vigente, la igualdad semántica del producto y del conjunto de conversiones devuelve `200` con la representación actual sin modificar producto, conversiones, `updated_at`, versión ni Outbox. Un cambio efectivo usa actualización condicional por `id + version`, incrementa la versión exactamente en uno y confirma producto, reemplazo de conversiones y `ProductUpdated v1` PENDING en una sola transacción.
+
+**Referencias durante edición y cambio de estado:** un no-op válido no se rechaza porque una categoría o UoM histórica, sin cambios, haya sido desactivada después. En cambios efectivos, toda referencia nueva o modificada debe existir y estar activa y el estado resultante debe cumplir las invariantes de conversiones. Si el resultado queda activo —incluida la reactivación— todas las referencias propuestas deben cumplir las reglas vigentes. Para desactivar o editar manteniendo inactivo un producto, se permite conservar referencias existentes ahora inactivas, pero no introducir ni sustituir una referencia por otra inactiva; así la desactivación no queda bloqueada por cambios previos de maestros. No se consulta Inventory, no se elimina el producto y no se alteran stock ni movimientos históricos.
+
+**Referencias y eventos:** categoría o UoM inexistente devuelve `404` Problem Details; una referencia nueva/modificada inactiva o una referencia inactiva en un estado final activo devuelve `409` Problem Details. En el alta se inserta `ProductCreated v1`; en cada edición efectiva, desactivación o reactivación se inserta `ProductUpdated v1`. Ambos registros Outbox se confirman con el agregado local, se publican después al menos una vez e Inventory deduplica por `eventId` en `inventory.processed_event`. Los contratos son `api/product-created-v1.schema.json` y `api/product-updated-v1.schema.json`; un no-op no produce evento.
 
 **Flujo base técnico-funcional:**
 
@@ -387,15 +393,15 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-11 |
 | HU | US-11 |
 | Servicio responsable | MS-CAT |
-| Endpoint(s) | `PATCH /api/v1/products/{id}` |
+| Endpoint(s) | `PUT /api/v1/products/{id}` |
 | Permiso baseline | `PRODUCT_WRITE` |
 | Eventos/asíncronos | ProductUpdated |
-| Precondiciones | Producto activo |
+| Precondiciones | Producto existente y `expectedVersion` vigente |
 | Postcondiciones | Umbral persistido y proyectado |
 | Excepciones relevantes | Valor negativo/incompatible |
 | Diagrama(s) | UML-03 |
 
-**Contrato de consulta aprobado:** `GET /api/v1/units` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, symbol, dimension, active}`. Incluye unidades activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión. Las conversiones siguen incluidas/versionadas con Product y no forman parte de esta respuesta.
+**Contrato aprobado:** el umbral se modifica como parte del reemplazo completo de Product mediante `PUT /api/v1/products/{id}`; no existe un PATCH parcial adicional en v1.2. `minStock` es obligatorio, usa precisión máxima 18,6 y debe ser mayor o igual que cero. Se aplican el mismo `expectedVersion`, no-op y `ProductUpdated v1` de CUS-05.
 
 **Flujo base técnico-funcional:**
 
@@ -754,15 +760,17 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-23 |
 | HU | US-23 |
 | Servicio responsable | MS-CAT |
-| Endpoint(s) | `GET/POST/PATCH /api/v1/units; conversiones incluidas/versionadas con Product` |
+| Endpoint(s) | `GET/POST /api/v1/units; conversiones reemplazadas/versionadas mediante PUT /api/v1/products/{id}` |
 | Permiso baseline | `PRODUCT_WRITE` |
 | Eventos/asíncronos | ProductUpdated |
 | Precondiciones | Magnitud/unidad válidas |
-| Postcondiciones | Una o más conversiones `from/to/factor>0` persistidas por producto y proyectables a Inventory |
+| Postcondiciones | Conjunto completo de cero o más conversiones `from/to/factor>0` persistido y proyectable a Inventory |
 | Excepciones relevantes | Factor <=0, unidad incompatible |
 | Diagrama(s) | UML-03 |
 
 **Regla de conversión con Product:** cuando la unidad de almacenamiento y la base difieren, existe una conversión activa directa almacenamiento → base y `cantidad_origen × factor = cantidad_destino`. `dimension` solo describe la UoM; no prohíbe conversiones entre dimensiones distintas. “Unidad incompatible” requiere una política futura explícita y no se infiere de `dimension`.
+
+**Reemplazo y proyección aprobados:** el PUT de Product exige el arreglo `conversions` y lo interpreta como snapshot completo. Cada pareja origen/destino es única, sus unidades son distintas, `factor` es positivo con precisión máxima 18,6 y toda referencia nueva o modificada usa UoM activas. Un cambio efectivo incrementa la versión de Product y emite `ProductUpdated v1` con el snapshot completo expresado en códigos UoM; un no-op no reescribe conversiones ni emite evento. La política para desactivar una UoM usada queda fuera de este incremento y no se define aquí.
 
 **Flujo base técnico-funcional:**
 

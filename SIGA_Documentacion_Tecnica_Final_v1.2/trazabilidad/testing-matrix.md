@@ -21,6 +21,9 @@
 | TC-PROD-003 | ADR-007/RNF-07 | Redelivery ProductCreated | Mensajería | Testcontainers | Inventory deduplica `eventId` mediante `processed_event`; entrega al menos una vez | JUnit |
 | TC-PROD-004 | RF-05/RF-27/RF-28/CUS-05 | Flags de trazabilidad independientes | Integración | JUnit | Acepta una combinación válida, incluso `requiresHeatNumber=true` con `requiresLot=false`, y conserva cada booleano | JUnit |
 | TC-PROD-005 | RF-05/RF-16/CUS-05/CUS-16 | Consultar productos | API/Integración | MockMvc/JUnit | Page estable por SKU/nombre + id; filtros combinados, `%`/`_` literales, vacío, límites, activo/inactivo, detalle 404 y 401/403 sin efectos | JUnit |
+| TC-PROD-006 | RF-05/RNF-14/CUS-05 | Reemplazo completo y concurrencia de Product | API/Integración | MockMvc/JUnit/PostgreSQL | PUT exige todos los campos y `expectedVersion`; update condicional incrementa versión una vez; versión obsoleta devuelve 409 aun si el contenido coincide; no-op vigente devuelve 200 sin producto/conversiones/timestamps/outbox nuevos | JUnit |
+| TC-PROD-007 | RF-05/CUS-05 | Desactivar/reactivar con referencias históricas | Integración | JUnit/PostgreSQL | Desactivación conserva referencias existentes ahora inactivas sin consultar Inventory; no admite referencias inactivas nuevas; reactivación exige todas las referencias vigentes; no borra historial | JUnit |
+| TC-PROD-008 | RF-05/RF-23/ADR-007 | ProductUpdated v1 transaccional | Integración/Mensajería | JUnit/RabbitMQ | Producto + reemplazo completo de conversiones + Outbox PENDING en un commit; rollback total; schema y `catalog.product.updated.v1`; snapshot cubre Inventory/Reporting; regresión de los cuatro eventos Catalog previos | JUnit |
 | TC-SUP-001 | RF-35 | Alta con taxId/RUC duplicado | API/Integración | REST Assured/JUnit | 409; no crea duplicado | API report |
 | TC-SUP-002 | RF-35/RF-07/RNF-06 | Entrada externa con proveedor activo | Integración | JUnit/Testcontainers | valida `supplier_ref`, confirma y conserva snapshot de proveedor | JUnit |
 | TC-SUP-003 | RF-35/RF-07 | Entrada externa con proveedor inexistente/inactivo | Integración | JUnit/Testcontainers | 422/409; no modifica stock | JUnit |
@@ -29,7 +32,8 @@
 | TC-SUP-006 | RF-35/CUS-31/RNF-14 | Versión, transiciones y no-op | Integración | JUnit/PostgreSQL | update condicional; no-op sin versión/outbox; desactivar/reactivar emite evento correcto | JUnit |
 | TC-SUP-007 | RF-35/ADR-007/RNF-07 | Outbox y publicación Supplier v1 | Integración/Mensajería | JUnit/RabbitMQ | atomicidad/rollback, schemas, routing, persistencia, confirm, retry y regresión ProductCreated | JUnit |
 | TC-PROJ-001 | RNF-05/07 | Catalog no disponible durante confirmación | Integración | WireMock/Testcontainers | Inventory usa product_ref/supplier_ref local; no dependencia REST | JUnit |
-| TC-PROJ-002 | RNF-07 | ProductUpdated redelivered | Mensajería | RabbitMQ/Testcontainers | processed_event evita doble proyección | JUnit |
+| TC-PROJ-002 | RNF-07 | ProductUpdated redelivered o fuera de orden | Mensajería | RabbitMQ/Testcontainers | `processed_event` deduplica `eventId`; `source_version` impide sobrescribir con una versión igual/anterior; producto y conjunto completo de conversiones se aplican en una transacción | JUnit |
+| TC-PROJ-003 | RNF-07/RF-20 | Alta Product en Reporting | Contrato/Integración | JUnit/Testcontainers | Pendiente: definir ProductCreated v2 o bootstrap; ProductCreated v1 no contiene nombre/categoría y ProductUpdated no cubre altas nunca modificadas | Evidencia futura |
 | TC-COUNT-001 | RF-33 | Conteo con diferencia | Integración | JUnit | guarda diferencia; stock no cambia hasta ajuste | JUnit |
 | TC-EVI-001 | RF-30/RNF-17 | PDF válido owner=MOVEMENT | Integración | MinIO/Testcontainers | metadata + SHA-256 + object + outbox | report |
 | TC-EVI-002 | RF-30 | Evidencia owner=ASSET/REPORT | API | REST Assured | ownerType/ownerId conservados | report |

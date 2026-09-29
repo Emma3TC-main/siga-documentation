@@ -244,6 +244,12 @@
 
 **Convención ProductCreated v1:** para el alta de producto, `id` es `eventId`, `aggregate_type='Product'`, `aggregate_id` es el ID del producto, `event_type='ProductCreated'`, `schema_version=1` y `correlation_id` es el UUID resuelto para el request. La columna `payload` guarda únicamente la propiedad `payload` del contrato `api/product-created-v1.schema.json`; el publisher posterior formará el sobre con esos metadatos de la fila (`eventId`, tipo, versión, agregado, correlación y `occurredAt`) y `producer='catalog-service'`. El registro `PENDING` se inserta en el commit local y su publicación posterior es al menos una vez.
 
+**Convención ProductUpdated v1:** para cada reemplazo efectivo, desactivación o reactivación, `event_type='ProductUpdated'`, `schema_version=1` y la fila `PENDING` se inserta en la misma transacción que el incremento condicional de `catalog.product.version` y el reemplazo de conversiones. La columna `payload` guarda el snapshot completo definido por `api/product-updated-v1.schema.json`; un no-op con versión vigente no modifica ninguna fila ni crea Outbox. El publisher forma el mismo sobre, publica en `siga.events` con `catalog.product.updated.v1` y entrega al menos una vez.
+
+**Mapeo de ProductUpdated v1 a proyecciones:** `payload.product.id` alimenta ambos `product_id`; SKU, tipo, códigos de unidad, stock mínimo, flags y estado cubren íntegramente `inventory.product_ref`; las parejas código origen/destino, factor y estado cubren `inventory.product_unit_conversion_ref`. Nombre y código/nombre de categoría cubren los campos adicionales de `analytics.product_projection`. `payload.product.version` alimenta `source_version` en ambas proyecciones y el `eventId` del sobre alimenta `analytics.product_projection.source_event_id`. `technical_attributes` no se proyecta en ninguna de estas tablas. El consumidor aplica el snapshot solo si su versión fuente es más nueva y registra `eventId` en su propia `processed_event`.
+
+**Pendiente de alta para Reporting:** `ProductCreated v1` no contiene `name`, `categoryCode` ni `categoryName`; por tanto no basta para crear `analytics.product_projection` de un producto que nunca sea actualizado. Se conserva intacto. Antes del consumidor Reporting debe aprobarse `ProductCreated v2` enriquecido o un procedimiento explícito de bootstrap/reconciliación.
+
 ## inventory.location
 **Owner:** `inventory-service`  
 **Propósito:** Jerarquía física recursiva del almacén/patio/taller.

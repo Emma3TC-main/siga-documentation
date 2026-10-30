@@ -20,6 +20,16 @@ entity "evidence.evidence_metadata" as t_evidence_metadata {
  uploaded_at : timestamptz <<NN>>
  updated_at : timestamptz <<NN>>
 }
+entity "evidence.upload_idempotency" as t_upload_idempotency {
+ idempotency_key : uuid <<PK>>
+ request_hash : char(64) <<NN>>
+ evidence_id : uuid <<NN,UQ>>
+ status : varchar(20) <<NN>>
+ response_status : smallint
+ response_payload : jsonb
+ created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
+}
 entity "evidence.outbox_event" as t_outbox_event {
  id : uuid <<PK>>
  aggregate_type : varchar(80) <<NN>>
@@ -37,5 +47,6 @@ entity "evidence.outbox_event" as t_outbox_event {
 }
 note bottom
 UUID hacia otro bounded context se documenta como referencia externa sin FK cross-schema.
+En MVP owner_type solo admite MOVEMENT; upload_idempotency pertenece a Evidence.
 end note
 @enduml

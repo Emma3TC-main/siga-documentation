@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SIGA AssetChanged v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "eventType", "schemaVersion", "aggregateType", "aggregateId", "occurredAt", "correlationId", "producer", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "const": "AssetChanged" },
+    "schemaVersion": { "const": 1 },
+    "aggregateType": { "const": "Asset" },
+    "aggregateId": { "type": "string", "format": "uuid" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "causationId": { "type": "string", "format": "uuid" },
+    "producer": { "const": "inventory-service" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["changeType", "actorUserId", "before", "after"],
+      "properties": {
+        "changeType": { "enum": ["REGISTERED", "UPDATED", "STATUS_CHANGED"] },
+        "actorUserId": {
+          "oneOf": [
+            { "type": "string", "format": "uuid" },
+            { "type": "null" }
+          ]
+        },
+        "before": {
+          "oneOf": [
+            { "$ref": "#/$defs/assetSnapshot" },
+            { "type": "null" }
+          ]
+        },
+        "after": { "$ref": "#/$defs/assetSnapshot" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "changeType": { "const": "REGISTERED" } }, "required": ["changeType"] },
+          "then": { "properties": { "before": { "type": "null" } } },
+          "else": { "properties": { "before": { "$ref": "#/$defs/assetSnapshot" } } }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "nullableShortText": {
+      "oneOf": [
+        { "type": "string", "minLength": 1, "maxLength": 100 },
+        { "type": "null" }
+      ]
+    },
+    "assetSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "productId", "assetCode", "serialNumber", "brand", "model", "operationalStatus", "technicalSnapshot", "version", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "productId": { "type": "string", "format": "uuid" },
+        "assetCode": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "serialNumber": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "brand": { "$ref": "#/$defs/nullableShortText" },
+        "model": { "$ref": "#/$defs/nullableShortText" },
+        "operationalStatus": { "enum": ["OPERATIVO", "EN_MANTENIMIENTO", "EN_TRANSITO", "INOPERATIVO", "FUERA_SERVICIO"] },
+        "technicalSnapshot": { "type": "object" },
+        "version": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

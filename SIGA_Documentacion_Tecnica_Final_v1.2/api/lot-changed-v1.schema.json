@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SIGA LotChanged v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "eventType", "schemaVersion", "aggregateType", "aggregateId", "occurredAt", "correlationId", "producer", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "const": "LotChanged" },
+    "schemaVersion": { "const": 1 },
+    "aggregateType": { "const": "Lot" },
+    "aggregateId": { "type": "string", "format": "uuid" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "causationId": { "type": "string", "format": "uuid" },
+    "producer": { "const": "inventory-service" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["changeType", "actorUserId", "before", "after"],
+      "properties": {
+        "changeType": { "enum": ["CREATED", "UPDATED", "STATUS_CHANGED"] },
+        "actorUserId": {
+          "oneOf": [
+            { "type": "string", "format": "uuid" },
+            { "type": "null" }
+          ]
+        },
+        "before": {
+          "oneOf": [
+            { "$ref": "#/$defs/lotSnapshot" },
+            { "type": "null" }
+          ]
+        },
+        "after": { "$ref": "#/$defs/lotSnapshot" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "changeType": { "const": "CREATED" } }, "required": ["changeType"] },
+          "then": { "properties": { "before": { "type": "null" } } },
+          "else": { "properties": { "before": { "$ref": "#/$defs/lotSnapshot" } } }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "nullableDate": {
+      "oneOf": [
+        { "type": "string", "format": "date" },
+        { "type": "null" }
+      ]
+    },
+    "nullableText": {
+      "oneOf": [
+        { "type": "string", "minLength": 1, "maxLength": 120 },
+        { "type": "null" }
+      ]
+    },
+    "lotSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "productId", "lotNumber", "heatNumber", "manufacturedAt", "receivedAt", "expiresAt", "status", "version", "createdAt", "updatedAt"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "productId": { "type": "string", "format": "uuid" },
+        "lotNumber": { "$ref": "#/$defs/nullableText" },
+        "heatNumber": { "$ref": "#/$defs/nullableText" },
+        "manufacturedAt": { "$ref": "#/$defs/nullableDate" },
+        "receivedAt": { "$ref": "#/$defs/nullableDate" },
+        "expiresAt": { "$ref": "#/$defs/nullableDate" },
+        "status": { "enum": ["ACTIVE", "QUARANTINED", "EXPIRED", "DEPLETED", "BLOCKED"] },
+        "version": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

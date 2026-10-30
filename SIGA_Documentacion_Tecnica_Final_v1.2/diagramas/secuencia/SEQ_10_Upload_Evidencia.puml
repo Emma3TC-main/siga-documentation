@@ -1,5 +1,5 @@
 @startuml
-title SEQ-10 — Upload de evidencia con owner genérico
+title SEQ-10 — Upload idempotente de evidencia para Movement
 
 ' --- Configuración visual (Skinparams) Mejorada ---
 skinparam shadowing true
@@ -74,6 +74,7 @@ actor "<size:18><&person></size>\nUsuario" as Usuario <<User>>
 participant "<size:18><&phone></size>\nWeb/Mobile" as C <<Client>>
 participant "<size:18><&bolt></size>\nGateway" as Gateway <<Gateway>>
 participant "<size:18><&document></size>\nMS-EVI" as EVI <<Microservice>>
+participant "<size:18><&layers></size>\nMS-INV" as INV <<Microservice>>
 database "<size:18><&hard-drive></size>\nevidence schema" as DB <<RDBMS>>
 participant "<size:18><&cloud></size>\nMinIO/GCS" as OBJ <<Storage>>
 queue "<size:18><&envelope-closed></size>\nRabbitMQ" as RabbitMQ <<Queue>>
@@ -81,22 +82,29 @@ queue "<size:18><&envelope-closed></size>\nRabbitMQ" as RabbitMQ <<Queue>>
 ' --- Lógica y Contenido Original ---
 Usuario -> C : seleccionar cámara/galería/PDF
 C -> C : prevalidar formato/tamaño + preview
-C -> Gateway : POST /api/v1/evidences\nownerType + ownerId + multipart
+C -> Gateway : POST /api/v1/evidences\nIdempotency-Key + ownerType=MOVEMENT + ownerId + multipart
 Gateway -> EVI
-EVI -> EVI : permiso + validar ownerType + MIME/magic bytes/size + SHA-256
+EVI -> EVI : JWT/EVIDENCE_WRITE + sub + validar metadata/MIME/magic/size + SHA-256
+EVI -> INV : GET /api/v1/movements/{ownerId}\nBearer original
+INV --> EVI : 200 owner visible / 404 / 5xx
+EVI -> DB : reservar Idempotency-Key + request_hash + evidence_id
 EVI -> OBJ : store con objectKey interno
 OBJ --> EVI : object/version id
 EVI -> DB : BEGIN
 EVI -> DB : INSERT evidence_metadata(owner_type, owner_id,...)
 EVI -> DB : INSERT evidence.outbox_event(EvidenceUploaded)
+EVI -> DB : UPDATE upload_idempotency COMPLETED + response
 EVI -> DB : COMMIT
 EVI --> C : 201 EvidenceMetadata
 ... publisher outbox ...
-EVI -> RabbitMQ : EvidenceUploaded
+EVI -> RabbitMQ : siga.events / evidence.uploaded.v1\nEvidenceUploaded v1
 
 note right of EVI
-Owner soportado: MOVEMENT, ASSET, ADJUSTMENT o REPORT.
+Owner MVP: MOVEMENT. Ajustes usan el id de su movimiento.
 ownerId es UUID externo sin FK cross-schema.
+Owner y permiso se validan antes del objeto.
+Si falla DB tras store, se intenta borrar exactamente ese objectKey;
+si falla la compensación, se registra incidente estructurado.
 No se almacena BLOB en PostgreSQL.
 end note
 @enduml

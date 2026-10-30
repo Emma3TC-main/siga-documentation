@@ -12,20 +12,27 @@ skinparam NoteBorderColor #A16207
 title BPMN-04 — Proceso de negocio: Ajuste de inventario
 |Supervisor/Encargado|
 start
-:Realizar conteo/verificación;
-:Detectar diferencia;
+:Crear conteo de una ubicación;
 |SIGA|
-:Calcular diferencia esperada vs contada;
-|Supervisor|
-:Registrar motivo y evidencia;
+:Capturar snapshot esperado;
+|Supervisor/Encargado|
+:Registrar cantidades observadas;
 |SIGA|
-:Verificar permiso/autorización;
-if (Autorizado?) then (sí)
- :Aplicar ajuste +/- atómico;
- :Mantener movimiento original intacto;
- :Registrar auditoría/outbox;
+:Calcular diferencia = contado - esperado;
+:Cerrar conteo sin modificar stock;
+if (¿Existe diferencia y se decide regularizar?) then (sí)
+ |Supervisor/Encargado|
+ :Registrar explícitamente ajuste +/-\ncon motivo y Evidence del movimiento;
+ |SIGA|
+ :Aplicar autorización/step-up/maker-checker\ndel flujo Movement existente;
+ if (¿Movimiento confirmado?) then (sí)
+  :Aplicar ajuste atómico;
+  :Emitir MovementConfirmed v1;
+ else (no)
+  :Mantener stock sin cambios;
+ endif
 else (no)
- :No modificar stock;
+ :Finalizar sin ajuste;
 endif
 stop
 @enduml

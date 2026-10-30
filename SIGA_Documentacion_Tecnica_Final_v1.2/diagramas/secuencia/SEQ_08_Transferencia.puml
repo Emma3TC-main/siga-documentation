@@ -71,13 +71,12 @@ database "<size:18><&hard-drive></size>\nPostgreSQL" as DB <<RDBMS>>
 
 ' --- Lógica y Contenido Original ---
 Usuario -> INV : confirmar TRANSFER (origen -> destino)
-INV -> DB : BEGIN
-INV -> DB : SELECT origen FOR UPDATE
-INV -> DB : SELECT destino FOR UPDATE (orden determinístico)
-INV -> INV : validar qty/trazabilidad/destino
+INV -> DB : BEGIN + reclamar Idempotency-Key
+INV -> DB : crear destino si falta; lock origen/destino FOR UPDATE (orden determinístico)
+INV -> INV : revalidar qty/trazabilidad/destino; aplicar costo promedio de origen
 INV -> DB : origen -= qty
 INV -> DB : destino += qty
-INV -> DB : movement CONFIRMADO + detalles + outbox
+INV -> DB : movement CONFIRMADO + snapshots detalle + MovementConfirmed v1 PENDING
 INV -> DB : COMMIT
 INV --> Usuario : 200
 
@@ -85,5 +84,6 @@ INV --> Usuario : 200
 note over Usuario, DB
 Stock organizacional total no cambia; solo cambia distribución física.
 Los locks se adquieren en orden estable para reducir riesgo de deadlock.
+RabbitMQ se publica solo después de COMMIT desde el outbox.
 end note
 @enduml

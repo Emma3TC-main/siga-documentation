@@ -86,10 +86,11 @@ Encargado -> Web : confirmar
 ' Corrección: Se agregó \n para unir "Idempotency-Key" a la flecha del mensaje y evitar error de sintaxis
 Web -> Gateway : POST /movements/{id}/confirm\nIdempotency-Key
 Gateway -> INV
-INV -> DB : BEGIN + validar idempotencia
-INV -> DB : lock/crear saldos destino
-INV -> INV : validar UoM, lote/activo, proveedor, TC y costo promedio
-INV -> DB : UPDATE stock + costos + movement CONFIRMADO + outbox
+INV -> DB : BEGIN + reclamar Idempotency-Key
+INV -> DB : crear saldo destino si falta; FOR UPDATE en orden estable
+INV -> INV : revalidar UoM/lote/activo/proveedor/TC; calcular costo 18,6 HALF_UP
+INV -> DB : UPDATE saldos + snapshots detalle + movement CONFIRMADO
+INV -> DB : INSERT outbox MovementConfirmed v1 (PENDING)
 alt error en cualquier paso
  DB --> INV : excepción
  INV -> DB : ROLLBACK
@@ -98,4 +99,8 @@ else todo válido
  INV -> DB : COMMIT
  INV --> Web : 200 CONFIRMADO
 end
+note right of INV
+El publisher se ejecuta después del commit;
+la reejecución de la misma key devuelve el resultado confirmado.
+end note
 @enduml

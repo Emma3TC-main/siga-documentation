@@ -1,4 +1,4 @@
--- SIGA demo seed aligned with physical_model.sql v1.1
+-- SIGA demo seed aligned with physical_model.sql v1.2
 -- DEV/TEST only. Password hash is a placeholder and must be replaced by an Argon2id hash in application bootstrap.
 
 INSERT INTO iam.permission(id,code,description) VALUES
@@ -10,7 +10,15 @@ INSERT INTO iam.permission(id,code,description) VALUES
 ('10000000-0000-0000-0000-000000000006','AUDIT_READ','Consultar auditoría'),
 ('10000000-0000-0000-0000-000000000007','REPORT_READ','Consultar reportes'),
 ('10000000-0000-0000-0000-000000000008','USER_MANAGE','Gestionar usuarios'),
-('10000000-0000-0000-0000-000000000009','ROLE_MANAGE','Gestionar roles');
+('10000000-0000-0000-0000-000000000009','ROLE_MANAGE','Gestionar roles'),
+('10000000-0000-0000-0000-000000000010','SUPPLIER_MANAGE','Gestionar proveedores'),
+('10000000-0000-0000-0000-000000000011','CATALOG_READ','Consultar catálogo'),
+('10000000-0000-0000-0000-000000000012','EVIDENCE_READ','Consultar evidencias'),
+('10000000-0000-0000-0000-000000000013','EVIDENCE_WRITE','Adjuntar evidencias'),
+('10000000-0000-0000-0000-000000000014','ANALYTICS_READ','Consumir exportaciones analíticas'),
+('10000000-0000-0000-0000-000000000015','INVENTORY_COUNT','Registrar conteos físicos'),
+('10000000-0000-0000-0000-000000000016','LOCATION_MANAGE','Gestionar ubicaciones'),
+('10000000-0000-0000-0000-000000000017','TRACEABILITY_MANAGE','Gestionar lotes y activos');
 
 INSERT INTO iam.role(id,code,name) VALUES
 ('11000000-0000-0000-0000-000000000001','ADMIN','Administrador'),
@@ -20,12 +28,25 @@ INSERT INTO iam.role(id,code,name) VALUES
 INSERT INTO iam.role_permission(role_id,permission_id)
 SELECT '11000000-0000-0000-0000-000000000001'::uuid,id FROM iam.permission;
 
+INSERT INTO iam.role_permission(role_id,permission_id)
+SELECT '11000000-0000-0000-0000-000000000002'::uuid,id
+FROM iam.permission WHERE code IN ('INVENTORY_READ','MOVEMENT_CREATE','CATALOG_READ','EVIDENCE_READ','EVIDENCE_WRITE','INVENTORY_COUNT','TRACEABILITY_MANAGE');
+
+INSERT INTO iam.role_permission(role_id,permission_id)
+SELECT '11000000-0000-0000-0000-000000000003'::uuid,id
+FROM iam.permission WHERE code IN ('INVENTORY_READ','MOVEMENT_AUTHORIZE','CATALOG_READ','EVIDENCE_READ','EVIDENCE_WRITE','REPORT_READ','INVENTORY_COUNT','LOCATION_MANAGE','TRACEABILITY_MANAGE');
+
 INSERT INTO iam.user_account(id,username,email,password_hash,mfa_enabled)
-VALUES ('12000000-0000-0000-0000-000000000001','admin.demo','admin.demo@siga.local',
-        '$argon2id$DEMO_REPLACE_WITH_REAL_HASH',false);
+VALUES
+('12000000-0000-0000-0000-000000000001','admin.demo','admin.demo@siga.local',
+ '$argon2id$DEMO_REPLACE_WITH_REAL_HASH',false),
+('12000000-0000-0000-0000-000000000002','encargado.demo','encargado.demo@siga.local',
+ '$argon2id$ENCARGADO_DEMO_REPLACE_WITH_REAL_HASH',false);
 
 INSERT INTO iam.user_role(user_id,role_id)
-VALUES ('12000000-0000-0000-0000-000000000001','11000000-0000-0000-0000-000000000001');
+VALUES
+('12000000-0000-0000-0000-000000000001','11000000-0000-0000-0000-000000000001'),
+('12000000-0000-0000-0000-000000000002','11000000-0000-0000-0000-000000000002');
 
 -- Proveedor demo para recepción externa (RF-35 / CUS-31)
 INSERT INTO catalog.supplier (id, code, tax_id, business_name, trade_name, contact_name, phone, email, address) VALUES

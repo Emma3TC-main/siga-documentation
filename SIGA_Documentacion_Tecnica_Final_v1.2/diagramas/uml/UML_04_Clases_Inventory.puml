@@ -74,6 +74,7 @@ class Lot {
  String heatNumber
  LocalDate expiresAt
  LotState status
+ long version
 }
 
 class Asset {
@@ -83,6 +84,7 @@ class Asset {
  String serialNumber
  AssetState operationalStatus
  jsonb technicalSnapshot
+ long version
 }
 
 class StockBalance {
@@ -151,10 +153,17 @@ class PhysicalCount {
  UUID id
  UUID locationId
  CountState status
- UUID countedByUserId
+ UUID createdByUserId
  String notes
+ long version
  Instant startedAt
  Instant completedAt
+ UUID completedByUserId
+ Instant cancelledAt
+ UUID cancelledByUserId
+ String cancellationReason
+ Instant createdAt
+ Instant updatedAt
 }
 
 class PhysicalCountLine {
@@ -166,6 +175,9 @@ class PhysicalCountLine {
  decimal systemQuantity
  decimal countedQuantity
  decimal differenceQuantity
+ String notes
+ UUID countedByUserId
+ Instant countedAt
 }
 
 class IdempotencyRecord {

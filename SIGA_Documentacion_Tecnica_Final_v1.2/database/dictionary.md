@@ -25,6 +25,7 @@
 | `created_at` | `timestamptz NOT NULL DEFAULT now()` |
 | `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
 
+
 **Restricciones de tabla:**
 - `CHECK (NOT mfa_enabled OR mfa_secret_encrypted IS NOT NULL)`
 
@@ -241,6 +242,14 @@
 **Índices relevantes:**
 - `idx_catalog_outbox_pending ON catalog.outbox_event(status, next_attempt_at, occurred_at) WHERE status='PENDING'`
 
+**Convención ProductCreated v1:** para el alta de producto, `id` es `eventId`, `aggregate_type='Product'`, `aggregate_id` es el ID del producto, `event_type='ProductCreated'`, `schema_version=1` y `correlation_id` es el UUID resuelto para el request. La columna `payload` guarda únicamente la propiedad `payload` del contrato `api/product-created-v1.schema.json`; el publisher posterior formará el sobre con esos metadatos de la fila (`eventId`, tipo, versión, agregado, correlación y `occurredAt`) y `producer='catalog-service'`. El registro `PENDING` se inserta en el commit local y su publicación posterior es al menos una vez.
+
+**Convención ProductUpdated v1:** para cada reemplazo efectivo, desactivación o reactivación, `event_type='ProductUpdated'`, `schema_version=1` y la fila `PENDING` se inserta en la misma transacción que el incremento condicional de `catalog.product.version` y el reemplazo de conversiones. La columna `payload` guarda el snapshot completo definido por `api/product-updated-v1.schema.json`; un no-op con versión vigente no modifica ninguna fila ni crea Outbox. El publisher forma el mismo sobre, publica en `siga.events` con `catalog.product.updated.v1` y entrega al menos una vez.
+
+**Mapeo de ProductUpdated v1 a proyecciones:** `payload.product.id` alimenta ambos `product_id`; SKU, tipo, códigos de unidad, stock mínimo, flags y estado cubren íntegramente `inventory.product_ref`; las parejas código origen/destino, factor y estado cubren `inventory.product_unit_conversion_ref`. Nombre y código/nombre de categoría cubren los campos adicionales de `analytics.product_projection`. `payload.product.version` alimenta `source_version` en ambas proyecciones y el `eventId` del sobre alimenta `analytics.product_projection.source_event_id`. `technical_attributes` no se proyecta en ninguna de estas tablas. El consumidor aplica el snapshot solo si su versión fuente es más nueva y registra `eventId` en su propia `processed_event`.
+
+**Pendiente de alta para Reporting:** `ProductCreated v1` no contiene `name`, `categoryCode` ni `categoryName`; por tanto no basta para crear `analytics.product_projection` de un producto que nunca sea actualizado. Se conserva intacto. Antes del consumidor Reporting debe aprobarse `ProductCreated v2` enriquecido o un procedimiento explícito de bootstrap/reconciliación.
+
 ## inventory.location
 **Owner:** `inventory-service`  
 **Propósito:** Jerarquía física recursiva del almacén/patio/taller.
@@ -258,6 +267,10 @@
 
 **Restricciones de tabla:**
 - `CHECK (parent_id IS NULL OR parent_id <> id)`
+- `code` es globalmente UNIQUE, case-sensitive e inmutable después de crear.
+- `parent_id=NULL` representa una raíz; la aplicación valida padre activo al introducirlo/cambiarlo/reactivar y evita ciclos profundos/concurrentes.
+- `active` implementa desactivación lógica sin cascade ni DELETE; `version` inicia en cero y aumenta exactamente una vez por mutación efectiva con versión esperada.
+- `created_at`/`updated_at` son físicos y no forman parte de `LocationResponse` MVP; un no-op no modifica `updated_at`.
 
 **Índices relevantes:**
 - `idx_location_parent ON inventory.location(parent_id)`
@@ -324,6 +337,7 @@
 | `received_at` | `date` |
 | `expires_at` | `date` |
 | `status` | `varchar(30) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','QUARANTINED','EXPIRED','DEPLETED','BLOCKED'))` |
+| `version` | `bigint NOT NULL DEFAULT 0` |
 | `created_at` | `timestamptz NOT NULL DEFAULT now()` |
 | `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
 
@@ -335,6 +349,10 @@
 - `uq_lot_product_number ON inventory.lot(product_id, lot_number) WHERE lot_number IS NOT NULL`
 - `idx_lot_product ON inventory.lot(product_id)`
 - `idx_lot_expiry ON inventory.lot(expires_at) WHERE expires_at IS NOT NULL`
+- `idx_lot_admin_status_created ON inventory.lot(status, created_at DESC, id DESC)`
+- `idx_lot_admin_product_created ON inventory.lot(product_id, created_at DESC, id DESC)`
+
+`lot_number`, `heat_number` y `product_id` son inmutables después del alta. `version` se comprueba antes de evaluar no-op y avanza una vez por mutación administrativa efectiva. La cantidad total y su distribución por ubicación se derivan de `stock_balance`; nunca se almacenan en `lot`. `expires_at` es la autoridad de caducidad: un lote vencido nunca es operacional aunque la materialización automática `EXPIRED` aún esté pendiente. `DEPLETED` solo se materializa cuando una confirmación lleva el agregado positivo a cero; un lote nuevo con cero puede seguir `ACTIVE` para su primera entrada.
 
 ## inventory.asset
 **Owner:** `inventory-service`  
@@ -349,6 +367,7 @@
 | `model` | `varchar(100)` |
 | `operational_status` | `varchar(40) NOT NULL DEFAULT 'OPERATIVO' CHECK (operational_status IN ( 'OPERATIVO','EN_MANTENIMIENTO','EN_TRANSITO','INOPERATIVO','FUERA_SERVICIO' ))` |
 | `technical_snapshot` | `jsonb NOT NULL DEFAULT '{}'::jsonb` |
+| `version` | `bigint NOT NULL DEFAULT 0` |
 | `created_at` | `timestamptz NOT NULL DEFAULT now()` |
 | `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
 
@@ -357,6 +376,10 @@
 
 **Índices relevantes:**
 - `idx_asset_product ON inventory.asset(product_id)`
+- `idx_asset_admin_status_created ON inventory.asset(operational_status, created_at DESC, id DESC)`
+- `idx_asset_admin_product_created ON inventory.asset(product_id, created_at DESC, id DESC)`
+
+`product_id`, `asset_code` y `serial_number` son inmutables. Solo `brand`, `model` y `technical_snapshot` son metadata administrativa reemplazable; el JSONB no puede contener stock, ubicación ni custodia autoritativos. `version` aplica control optimista. `EN_TRANSITO` queda reservado para un futuro flujo asíncrono despacho/recepción y no es seleccionable por administración. `FUERA_SERVICIO` es terminal y exige ausencia de saldo positivo. No existe modelo de custodia en este MVP.
 
 ## inventory.stock_balance
 **Owner:** `inventory-service`  
@@ -381,10 +404,13 @@
 **Índices relevantes:**
 - `idx_stock_product_location ON inventory.stock_balance(product_id, location_id)`
 - `idx_stock_lot ON inventory.stock_balance(lot_id) WHERE lot_id IS NOT NULL`
+- Plan Inventory V6: `idx_stock_location_positive ON inventory.stock_balance(location_id) WHERE quantity > 0`, para verificar el subárbol al desactivar sin recorrer saldos cero.
 
 ## inventory.movement
 **Owner:** `inventory-service`  
 **Propósito:** Cabecera inmutable al confirmar; registra tipo, estado, actores, centro de costo, proveedor de recepción cuando aplique y sensibilidad.
+
+**Asignador de código:** `inventory.movement_code_sequence` es una secuencia global propia de Inventory. Al crear DRAFT se forma `MOV-YYYY-NNNNN` con año UTC y correlativo de ancho mínimo cinco; no se reinicia por año y puede dejar huecos.
 | Columna | Definición física |
 |---|---|
 | `id` | `uuid PRIMARY KEY DEFAULT gen_random_uuid()` |
@@ -446,6 +472,8 @@
 | `base_unit_cost_pen` | `numeric(18,6) CHECK (base_unit_cost_pen IS NULL OR base_unit_cost_pen >= 0)` |
 | `applied_avg_cost_pen` | `numeric(18,6) CHECK (applied_avg_cost_pen IS NULL OR applied_avg_cost_pen >= 0)` |
 
+`base_unit_cost_pen` conserva el costo base valorizado de ENTRY/ADJUST_POSITIVE. `applied_avg_cost_pen` conserva el promedio bloqueado aplicado a EXIT, TRANSFER y ADJUST_NEGATIVE, o el costo aplicado al ajuste positivo. Ambos son snapshots históricos con escala 6 y `HALF_UP` al persistir.
+
 **Restricciones de tabla:**
 - `FOREIGN KEY (lot_id, product_id) REFERENCES inventory.lot(id, product_id)`
 - `FOREIGN KEY (asset_id, product_id) REFERENCES inventory.asset(id, product_id)`
@@ -486,14 +514,25 @@
 | `id` | `uuid PRIMARY KEY DEFAULT gen_random_uuid()` |
 | `location_id` | `uuid NOT NULL REFERENCES inventory.location(id)` |
 | `status` | `varchar(30) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','IN_PROGRESS','COMPLETED','CANCELLED'))` |
-| `counted_by_user_id` | `uuid NOT NULL` |
+| `created_by_user_id` | `uuid NOT NULL` |
 | `notes` | `text` |
-| `started_at` | `timestamptz NOT NULL DEFAULT now()` |
+| `version` | `bigint NOT NULL DEFAULT 0 CHECK (version >= 0)` |
+| `started_at` | `timestamptz` |
 | `completed_at` | `timestamptz` |
+| `completed_by_user_id` | `uuid` |
+| `cancelled_at` | `timestamptz` |
+| `cancelled_by_user_id` | `uuid` |
+| `cancellation_reason` | `varchar(255)` |
 | `created_at` | `timestamptz NOT NULL DEFAULT now()` |
+| `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
 
 **Restricciones de tabla:**
-- `CHECK (completed_at IS NULL OR completed_at >= started_at)`
+- actores y timestamps terminales son coherentes con `DRAFT`, `IN_PROGRESS`, `COMPLETED` y `CANCELLED`;
+- `started_at >= created_at`, `completed_at >= started_at`, `cancelled_at >= created_at` y `updated_at >= created_at` cuando correspondan.
+
+**Índices relevantes:**
+- `idx_physical_count_created ON inventory.physical_count(created_at DESC, id DESC)`
+- Plan Inventory V6: `idx_physical_count_location_open ON inventory.physical_count(location_id) WHERE status IN ('DRAFT','IN_PROGRESS')`, para detectar conteos bloqueantes del subárbol.
 
 ## inventory.physical_count_line
 **Owner:** `inventory-service`  
@@ -506,14 +545,20 @@
 | `lot_id` | `uuid` |
 | `asset_id` | `uuid` |
 | `system_quantity` | `numeric(18,6) NOT NULL CHECK (system_quantity >= 0)` |
-| `counted_quantity` | `numeric(18,6) NOT NULL CHECK (counted_quantity >= 0)` |
+| `counted_quantity` | `numeric(18,6) CHECK (counted_quantity >= 0)` |
 | `difference_quantity` | `numeric(18,6) GENERATED ALWAYS AS (counted_quantity - system_quantity) STORED` |
+| `notes` | `text` |
+| `counted_by_user_id` | `uuid` |
+| `counted_at` | `timestamptz` |
 
 **Restricciones de tabla:**
 - `FOREIGN KEY (lot_id, product_id) REFERENCES inventory.lot(id, product_id)`
 - `FOREIGN KEY (asset_id, product_id) REFERENCES inventory.asset(id, product_id)`
+- cantidad contada, actor y fecha son todos null (pendiente) o todos no null (capturada);
+- una línea con activo admite cantidades de sistema y contada únicamente en `0..1`.
 
 **Índices relevantes:**
+- `uq_count_line_dimension` evita duplicar una dimensión producto/lote/activo dentro del conteo, tratando nulls de forma determinista.
 - `idx_count_line_count ON inventory.physical_count_line(count_id)`
 - `idx_count_line_product ON inventory.physical_count_line(product_id)`
 
@@ -553,6 +598,8 @@
 ## inventory.outbox_event
 **Owner:** `inventory-service`  
 **Propósito:** Eventos Inventory insertados en el mismo commit que stock/movimiento.
+
+Para D4, `MovementConfirmed v1` usa `id` como `eventId`, `aggregate_type=Movement`, `aggregate_id=movement.id`, `status=PENDING` y payload validado contra el schema canónico. Solo describe el movimiento y saldos afectados por esa confirmación.
 | Columna | Definición física |
 |---|---|
 | `id` | `uuid PRIMARY KEY DEFAULT gen_random_uuid()` |
@@ -573,12 +620,12 @@
 - `idx_inventory_outbox_pending ON inventory.outbox_event(status, next_attempt_at, occurred_at) WHERE status='PENDING'`
 
 ## evidence.evidence_metadata
-**Owner:** `evidence-service`  
-**Propósito:** Metadata e integridad de archivo con propietario genérico MOVEMENT/ASSET/ADJUSTMENT/REPORT.
+**Owner:** `evidence-service`
+**Propósito:** Metadata e integridad de archivo asociado a un movimiento accesible de Inventory. Los ajustes usan el UUID de su movimiento; otros owner types quedan fuera del MVP.
 | Columna | Definición física |
 |---|---|
 | `id` | `uuid PRIMARY KEY DEFAULT gen_random_uuid()` |
-| `owner_type` | `varchar(30) NOT NULL CHECK (owner_type IN ('MOVEMENT','ASSET','ADJUSTMENT','REPORT'))` |
+| `owner_type` | `varchar(30) NOT NULL CHECK (owner_type = 'MOVEMENT')` |
 | `owner_id` | `uuid NOT NULL` |
 | `object_key` | `varchar(500) NOT NULL UNIQUE` |
 | `original_filename` | `varchar(255) NOT NULL` |
@@ -588,14 +635,38 @@
 | `storage_provider` | `varchar(30) NOT NULL CHECK (storage_provider IN ('MINIO','GCS'))` |
 | `uploaded_by_user_id` | `uuid NOT NULL` |
 | `status` | `varchar(30) NOT NULL DEFAULT 'RECEIVED' CHECK (status IN ('RECEIVED','VALIDATING','STORED','AVAILABLE','REJECTED','ARCHIVED'))` |
-| `metadata` | `jsonb NOT NULL DEFAULT '{}'::jsonb` |
+| `metadata` | `jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(metadata) = 'object' AND octet_length(metadata::text) <= 16384)` |
 | `uploaded_at` | `timestamptz NOT NULL DEFAULT now()` |
 | `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
 
 **Índices relevantes:**
-- `idx_evidence_owner ON evidence.evidence_metadata(owner_type, owner_id)`
+- `idx_evidence_owner ON evidence.evidence_metadata(owner_type, owner_id, uploaded_at DESC, id DESC)`
 - `idx_evidence_uploader ON evidence.evidence_metadata(uploaded_by_user_id, uploaded_at DESC)`
 - `idx_evidence_sha256 ON evidence.evidence_metadata(sha256)`
+
+La aplicación limita `metadata` a profundidad 5, rechaza raíz distinta de objeto, contenido binario/base64 y secretos. El límite físico se mide sobre la representación UTF-8 serializada. `object_key` es interno y no forma parte de las respuestas públicas.
+
+## evidence.upload_idempotency
+**Owner:** `evidence-service`
+**Propósito:** Reserva durable de `Idempotency-Key` para que un retry de upload no duplique objeto, metadata ni Outbox.
+| Columna | Definición física |
+|---|---|
+| `idempotency_key` | `uuid PRIMARY KEY` |
+| `request_hash` | `char(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$')` |
+| `evidence_id` | `uuid NOT NULL UNIQUE` |
+| `status` | `varchar(20) NOT NULL CHECK (status IN ('PROCESSING','COMPLETED','FAILED'))` |
+| `response_status` | `smallint` |
+| `response_payload` | `jsonb` |
+| `created_at` | `timestamptz NOT NULL DEFAULT now()` |
+| `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
+
+**Restricciones de tabla:**
+- `COMPLETED` exige `response_status=201` y `response_payload` no nulo.
+- `evidence_id` se reserva antes de escribir el objeto y permanece estable en reintentos. No tiene FK porque la reserva durable precede a `evidence_metadata`; `COMPLETED` implica por contrato que la metadata existe.
+- `request_hash` cubre `ownerType`, `ownerId`, metadata JSON canónica, nombre original sanitizado, MIME validado y SHA-256 del archivo. SHA-256 del archivo por sí solo nunca es clave de idempotencia.
+
+**Índices relevantes:**
+- `idx_evidence_idempotency_status_updated ON evidence.upload_idempotency(status, updated_at)`
 
 ## evidence.outbox_event
 **Owner:** `evidence-service`  
@@ -643,7 +714,7 @@
 
 ## audit.notification
 **Owner:** `audit-notification-service`  
-**Propósito:** Notificaciones in-app por usuario.
+**Propósito:** Notificaciones in-app personales. `user_id` es el `recipientUserId` y se obtiene del evento; la API autoriza por el UUID de `JWT sub`, sin FK ni consulta cross-schema a IAM.
 | Columna | Definición física |
 |---|---|
 | `id` | `uuid PRIMARY KEY DEFAULT gen_random_uuid()` |
@@ -655,6 +726,8 @@
 | `reference_id` | `uuid` |
 | `read_at` | `timestamptz` |
 | `created_at` | `timestamptz NOT NULL DEFAULT now()` |
+
+**Semántica MVP:** `read_at` nullable es la única fuente de verdad del estado leído; no existe un `status`/boolean persistido paralelo. `reference_type`/`reference_id` identifican la fuente (`Movement` y su UUID). Para `MOVEMENT_CONFIRMED`, la API deriva `severity=INFO` sin columna adicional. Las consultas se ordenan establemente por `created_at DESC, id DESC`.
 
 **Índices relevantes:**
 - `idx_notification_user_unread ON audit.notification(user_id, created_at DESC) WHERE read_at IS NULL`
@@ -803,4 +876,3 @@
 | `last_event_id` | `uuid` |
 | `last_occurred_at` | `timestamptz` |
 | `updated_at` | `timestamptz NOT NULL DEFAULT now()` |
-

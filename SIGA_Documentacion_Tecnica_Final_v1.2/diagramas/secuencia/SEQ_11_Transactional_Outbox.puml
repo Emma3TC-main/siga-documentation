@@ -62,14 +62,20 @@ UC -> DB : BEGIN
 UC -> DB : cambios de dominio
 UC -> DB : INSERT <schema>.outbox_event(PENDING)
 UC -> DB : COMMIT
-... ciclo worker ...
+... worker programado configurable ...
 PUB -> DB : reclamar PENDING (lote/lock)
 PUB -> RabbitMQ : publish persistent message
+note right of RabbitMQ
+Inventory D4: MovementConfirmed v1
+exchange siga.events; routing
+inventory.movement.confirmed.v1
+end note
 RabbitMQ --> PUB : publisher confirm
-PUB -> DB : status=PUBLISHED, published_at
+PUB -> DB : solo tras ACK: status=PUBLISHED, published_at
 alt broker no disponible
  RabbitMQ x--> PUB : error
  PUB -> DB : attempts++, next_attempt_at\nconserva PENDING/FAILED según política
+ PUB -> PUB : log estructurado eventId (sin payload)
 end
 
 ' Corrección: Reducimos el ancho de la nota anclándola solo a la Base de Datos y el Publisher

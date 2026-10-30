@@ -78,9 +78,14 @@ IAM --> Cliente : contexto
 Cliente -> INV : crear/submit ajuste
 INV -> INV : exigir motivo + INVENTORY_ADJUST
 INV -> DB : PENDIENTE_AUTORIZACION o AUTORIZADO según separación de funciones
-INV -> DB : BEGIN + FOR UPDATE
-INV -> INV : validar resultado quantity >= 0
-INV -> DB : actualizar stock + movimiento ajuste + outbox
+INV -> DB : BEGIN + reclamar Idempotency-Key; FOR UPDATE en orden estable
+INV -> INV : revalidar resultado quantity >= 0 y costo aplicable
+INV -> DB : actualizar stock + snapshots + movimiento ajuste CONFIRMADO
+INV -> DB : INSERT MovementConfirmed v1 PENDING
 INV -> DB : COMMIT
 INV --> Cliente : CONFIRMADO
+note right of INV
+El publisher posterior al commit enruta el evento en siga.events /
+inventory.movement.confirmed.v1.
+end note
 @enduml

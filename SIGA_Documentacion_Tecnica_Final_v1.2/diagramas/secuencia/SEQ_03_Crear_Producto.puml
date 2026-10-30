@@ -78,14 +78,14 @@ database "<size:18><&hard-drive></size>\ninventory schema" as IDB <<RDBMS>>
 Administrador -> Web : producto + UoM + conversiones + trazabilidad
 Web -> Gateway : POST /api/v1/products
 Gateway -> CAT
-CAT -> CAT : validar SKU/categoría/UoM/flags/JSONB
+CAT -> CAT : validar SKU/categoría/UoM activos/conversión directa/JSONB
 CAT -> CDB : BEGIN
 CAT -> CDB : INSERT product + unit_conversion*
-CAT -> CDB : INSERT catalog.outbox_event(ProductCreated)
+CAT -> CDB : INSERT catalog.outbox_event(ProductCreated v1, PENDING)
 CAT -> CDB : COMMIT
 CAT --> Web : 201 Created
 ... publisher outbox ...
-CAT -> RabbitMQ : ProductCreated v1
+CAT -> RabbitMQ : ProductCreated v1 (al menos una vez)
 RabbitMQ -> INV : eventId E1
 INV -> IDB : BEGIN + verificar inventory.processed_event(E1)
 alt evento nuevo

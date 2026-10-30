@@ -134,11 +134,11 @@ state REJECTED <<rejected>>
 
 ' Transiciones
 [*] --> DRAFT : create
-DRAFT --> PENDING_AUTHORIZATION : submit [sensitive]
-DRAFT --> CONFIRMED : confirm [not sensitive + valid]\nACID commit
+DRAFT --> PENDING_AUTHORIZATION : submit [sensitive OR no MOVEMENT_AUTHORIZE]
+DRAFT --> CONFIRMED : confirm [MOVEMENT_AUTHORIZE + not sensitive + valid]\nACID commit
 DRAFT --> CANCELLED : cancel draft
-PENDING_AUTHORIZATION --> AUTHORIZED : authorize [permission + recent step-up]
-PENDING_AUTHORIZATION --> REJECTED : reject
+PENDING_AUTHORIZATION --> AUTHORIZED : authorize [permission + recent step-up + checker != maker]
+PENDING_AUTHORIZATION --> REJECTED : reject [permission + recent step-up + checker != maker]
 PENDING_AUTHORIZATION --> CANCELLED : cancel [policy]
 AUTHORIZED --> CONFIRMED : confirm [revalidate]\nACID commit
 AUTHORIZED --> CANCELLED : cancel before commit [policy]

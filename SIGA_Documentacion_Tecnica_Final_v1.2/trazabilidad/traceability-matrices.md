@@ -210,7 +210,7 @@
 | UI-M07 | Móvil | /notifications |
 | UI-M08 | Móvil | /auth/logout |
 
-Para UI-W04/UI-W05, las mutaciones requieren `auth_time <= 300s`; las lecturas no. No existe endpoint step-up separado, refresh no renueva `auth_time` y el rechazo conserva `403 AUTH_FORBIDDEN` (`STEP_UP_ERROR_AMBIGUITY_DEBT`). Los reemplazos de roles/permisos usan `LAST_WRITE_WINS_ACCEPTED_FOR_MVP`, sin ETag ni `expectedVersion`. Web REMOTE autoriza mediante claims, no por nombres de rol ni matrices estáticas. Identity publica eventos Outbox; el consumo central queda diferido como `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER`.
+Para UI-W04/UI-W05, las mutaciones requieren `auth_time <= 300s`; las lecturas no. No existe endpoint step-up separado, refresh no renueva `auth_time` y el rechazo conserva `403 AUTH_FORBIDDEN` (`STEP_UP_ERROR_AMBIGUITY_DEBT`). Los reemplazos de roles/permisos usan `LAST_WRITE_WINS_ACCEPTED_FOR_MVP`, sin ETag ni `expectedVersion`. Web REMOTE autoriza mediante claims, no por nombres de rol ni matrices estáticas. Identity publica eventos Outbox. El contrato v2 distingue UserCreated/UserUpdated/UserDisabled/UserRolesChanged y RoleCreated/RolePermissionsChanged, con acciones Audit homónimas en mayúsculas; v1 se preserva y RoleChanged usa `IDENTITY_ROLE_CHANGED_LEGACY`. El consumo central, DLQ y activación permanecen diferidos como `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER`; no hay Notifications IAM.
 
 ## MTR-08 ADR ↔ Área
 

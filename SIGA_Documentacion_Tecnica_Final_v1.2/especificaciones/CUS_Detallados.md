@@ -45,7 +45,7 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Servicio responsable | MS-IAM |
 | Endpoint(s) | `GET /api/v1/users`; `GET/PATCH /api/v1/users/{id}`; `POST /api/v1/users`; `PUT /api/v1/users/{id}/roles` |
 | Permiso baseline | `USER_MANAGE` |
-| Eventos/asíncronos | Outbox IAM: UserCreated/UserUpdated/UserDisabled/RoleChanged; consumidor central Audit diferido |
+| Eventos/asíncronos | Outbox IAM v2: UserCreated/UserUpdated/UserDisabled/UserRolesChanged; compatibilidad v1; consumidor central Audit pendiente |
 | Precondiciones | Lectura con `USER_MANAGE`; mutación con MFA y `auth_time` de máximo 300 segundos; `ROLE_MANAGE` para reemplazar/asignar roles |
 | Postcondiciones | Usuario creado/actualizado/desactivado sin perder trazabilidad |
 | Excepciones relevantes | Duplicado, validación, intento de autodesactivación no permitida por política |
@@ -55,7 +55,7 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 
 Toda mutación exige reautenticación MFA normal cuando `auth_time` supera 300 segundos; refresh no renueva ese instante y no existe token ni endpoint step-up separado. Ausencia o expiración del step-up conserva `403 AUTH_FORBIDDEN`; el cliente puede hacer preflight de permiso y `auth_time`, pero ante un 403 no debe atribuir con certeza la causa. Esta ambigüedad se registra como `STEP_UP_ERROR_AMBIGUITY_DEBT`.
 
-Identity confirma el cambio y `iam.outbox_event` en una transacción y publica de forma durable. La proyección de estos eventos en `audit.audit_event` no está implementada y queda como `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER`; no se afirma auditoría central vigente.
+Identity confirma el cambio y `iam.outbox_event` en una transacción y publica de forma durable. El contrato v2 usa aggregate User, `actorUserId` derivado de JWT `sub` y snapshots seguros before/after; `roleIds` representa el conjunto completo. Audit mapeará a `USER_CREATED`, `USER_UPDATED`, `USER_DISABLED` o `USER_ROLES_CHANGED`. Los eventos v1 existentes siguen aceptados. La proyección en `audit.audit_event` no está implementada y queda como `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER`; no se afirma auditoría central vigente ni se crean Notifications.
 
 **Flujo base técnico-funcional:**
 
@@ -84,13 +84,15 @@ Identity confirma el cambio y `iam.outbox_event` en una transacción y publica d
 | Servicio responsable | MS-IAM |
 | Endpoint(s) | `GET/POST /api/v1/roles`; `PUT /api/v1/roles/{id}/permissions`; `GET /api/v1/permissions` |
 | Permiso baseline | `ROLE_MANAGE` |
-| Eventos/asíncronos | Outbox IAM: RoleChanged; consumidor central Audit diferido |
+| Eventos/asíncronos | Outbox IAM v2: RoleCreated/RolePermissionsChanged; RoleChanged v1 legacy; consumidor central Audit pendiente |
 | Precondiciones | Lecturas con `ROLE_MANAGE`; mutaciones con MFA y `auth_time` de máximo 300 segundos; catálogo de permisos read-only |
 | Postcondiciones | RBAC actualizado; sesiones nuevas reflejan permisos |
 | Excepciones relevantes | Rol protegido, permiso inexistente, conflicto de asignación |
 | Diagrama(s) | UML-02 |
 
 **Contrato RBAC MVP:** los roles son dinámicos: se listan y crean, pero no existe detalle individual, edición genérica, rename, activación/desactivación ni borrado. El catálogo `GET /permissions` es read-only, devuelve `{id, code, description}` en `code ASC` y no ofrece detalle ni mutaciones. `PUT /roles/{id}/permissions` reemplaza el conjunto completo; `ADMIN` permanece protegido por backend. No existe `PATCH /roles`.
+
+El contrato asíncrono v2 distingue `RoleCreated` y `RolePermissionsChanged`, aggregate Role, actor autenticado y snapshots seguros; `permissionIds` es reemplazo completo. Audit mapeará a `ROLE_CREATED` y `ROLE_PERMISSIONS_CHANGED`. No existe `RoleUpdated`. El ambiguo `RoleChanged v1` se acepta únicamente como `IDENTITY_ROLE_CHANGED_LEGACY`, sin consultar IAM para inferir el subtipo.
 
 Los reemplazos de roles y permisos no exponen ETag, `expectedVersion` ni otro token optimista. Se acepta explícitamente `LAST_WRITE_WINS_ACCEPTED_FOR_MVP`: la UI carga el estado vigente al abrir, presenta y confirma el conjunto completo, y recarga la representación autoritativa tras guardar. Dos administradores concurrentes aún pueden sobrescribirse; el control optimista queda como evolución separada.
 

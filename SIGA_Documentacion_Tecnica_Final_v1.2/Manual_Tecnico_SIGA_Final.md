@@ -669,8 +669,8 @@ Elegido sobre Kafka porque SIGA requiere mensajería confiable de volumen modera
 
 | Evento | Productor | Consumidor | Uso |
 |---|---|---|---|
-| UserCreated/Updated/Disabled | IAM | Diferido | Publicación durable; consumidor Audit central pendiente |
-| RoleChanged | IAM | Diferido | Publicación durable; consumidor Audit central pendiente |
+| UserCreated/UserUpdated/UserDisabled/UserRolesChanged v2 | IAM | AUD (pendiente de implementación) | Auditoría central de usuario con snapshots seguros |
+| RoleCreated/RolePermissionsChanged v2 | IAM | AUD (pendiente de implementación) | Auditoría central RBAC con snapshots seguros |
 | ProductCreated/Updated | CAT | INV, REP | Proyección local |
 | SupplierCreated/Updated/Disabled | CAT | INV, REP | Proyección local de proveedor |
 | StockBelowMinimum | INV | AUD, REP | Alerta/dashboard |
@@ -685,6 +685,14 @@ Elegido sobre Kafka porque SIGA requiere mensajería confiable de volumen modera
 | IntegrationFailed | Cualquiera | AUD | Visibilidad operativa |
 
 Identity publica sus eventos existentes mediante `iam.outbox_event` y RabbitMQ, pero el servicio Audit vigente no los consume. `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER` identifica este gap diferido; hasta cerrarlo no se afirma que las mutaciones IAM aparezcan en `audit.audit_event`.
+
+**Contrato IAM → Audit cerrado.** Los mensajes históricos v1 conservan `aggregateType=Identity`, payload exacto `{id,actorId}` y routings `iam.UserCreated`, `iam.UserUpdated`, `iam.UserDisabled` e `iam.RoleChanged`. Los tres eventos de usuario se mapean a `USER_CREATED`, `USER_UPDATED` y `USER_DISABLED`; `RoleChanged v1` es deliberadamente ambiguo y se mapea únicamente a `IDENTITY_ROLE_CHANGED_LEGACY`, sin consultar el estado IAM actual ni reconstruir un subtipo. El inventario histórico preservado es 1 UserCreated, 1 UserUpdated, 1 UserDisabled y 6 RoleChanged.
+
+El productor futuro usa `schemaVersion=2`: `UserCreated`, `UserUpdated`, `UserDisabled` y `UserRolesChanged` tienen `aggregateType=User`; `RoleCreated` y `RolePermissionsChanged`, `aggregateType=Role`. `aggregateId` y `payload.userId`/`roleId` identifican el agregado modificado. `actorUserId` proviene exclusivamente del `sub` JWT autenticado. Los snapshots `before`/`after` contienen solo `{id,username,email,active,mfaEnabled,roleIds}` para User o `{id,code,name,active,permissionIds}` para Role; los conjuntos representan reemplazos completos. UserCreated/RoleCreated usan `before=null`; UserDisabled exige `after.active=false`. No existe `RoleUpdated` mientras Identity no exponga esa operación.
+
+Los schemas canónicos son `api/iam-*-v1.schema.json` para compatibilidad y `api/iam-*-v2.schema.json` para el contrato futuro. Todos usan Draft 2020-12, objetos cerrados y excluyen contraseña/hash, secreto MFA, OTP, access/refresh token, JWT, authorization header y secretos de recuperación. Los routings v2 son `iam.user.created.v2`, `iam.user.updated.v2`, `iam.user.disabled.v2`, `iam.user.roles.changed.v2`, `iam.role.created.v2` e `iam.role.permissions.changed.v2`; exchange `siga.events` y binding `iam.#` se conservan.
+
+La cola durable existente `siga.identity.audit` se retiene y no se recrea. Antes de activar el consumidor se crearán `siga.identity.audit.dlx` y `siga.identity.audit.dlq`, binding `siga.identity.audit.dead`, y una policy limitada por `^siga\.identity\.audit$` añadirá DLX/routing sin purgar mensajes. El consumidor `audit-identity-events-consumer` deduplica por `eventId` en `audit.processed_event`; claim y Audit se confirman en una transacción y el ACK ocurre después. Duplicados se ACK sin segundo Audit; mensajes inválidos/no soportados van a DLQ y fallos transitorios usan retry acotado antes de DLQ, nunca requeue infinito. Estos eventos no crean Notifications. Esta topología y el consumidor continúan pendientes de implementación.
 
 ## 11.3 Envelope
 
@@ -1089,7 +1097,7 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Servicio responsable | MS-IAM |
 | Endpoint(s) | `GET /api/v1/users`; `GET/PATCH /api/v1/users/{id}`; `POST /api/v1/users`; `PUT /api/v1/users/{id}/roles` |
 | Permiso baseline | `USER_MANAGE` |
-| Eventos/asíncronos | Outbox IAM: UserCreated/UserUpdated/UserDisabled/RoleChanged; consumidor central Audit diferido |
+| Eventos/asíncronos | Outbox IAM v2: UserCreated/UserUpdated/UserDisabled/UserRolesChanged; v1 histórico compatible; consumidor central Audit pendiente |
 | Precondiciones | Lectura con `USER_MANAGE`; mutación con MFA y `auth_time` de máximo 300 segundos; `ROLE_MANAGE` para reemplazar/asignar roles |
 | Postcondiciones | Usuario creado/actualizado/desactivado sin perder trazabilidad |
 | Excepciones relevantes | Duplicado, validación, intento de autodesactivación no permitida por política |
@@ -1126,7 +1134,7 @@ Identity confirma cada mutación y su `iam.outbox_event` local de forma transacc
 | Servicio responsable | MS-IAM |
 | Endpoint(s) | `GET/POST /api/v1/roles`; `PUT /api/v1/roles/{id}/permissions`; `GET /api/v1/permissions` |
 | Permiso baseline | `ROLE_MANAGE` |
-| Eventos/asíncronos | Outbox IAM: RoleChanged; consumidor central Audit diferido |
+| Eventos/asíncronos | Outbox IAM v2: RoleCreated/RolePermissionsChanged; RoleChanged v1 solo como legacy ambiguo; consumidor central Audit pendiente |
 | Precondiciones | Lecturas con `ROLE_MANAGE`; mutaciones con MFA y `auth_time` de máximo 300 segundos; catálogo de permisos read-only |
 | Postcondiciones | RBAC actualizado; sesiones nuevas reflejan permisos |
 | Excepciones relevantes | Rol protegido, permiso inexistente, conflicto de asignación |

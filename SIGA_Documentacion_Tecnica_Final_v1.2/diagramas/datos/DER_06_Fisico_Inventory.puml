@@ -57,6 +57,7 @@ entity "inventory.lot" as t_lot {
  received_at : date
  expires_at : date
  status : varchar(30) <<NN>>
+ version : bigint <<NN>>
  created_at : timestamptz <<NN>>
  updated_at : timestamptz <<NN>>
 }
@@ -69,6 +70,7 @@ entity "inventory.asset" as t_asset {
  model : varchar(100)
  operational_status : varchar(40) <<NN>>
  technical_snapshot : jsonb <<NN>>
+ version : bigint <<NN>>
  created_at : timestamptz <<NN>>
  updated_at : timestamptz <<NN>>
 }
@@ -141,11 +143,17 @@ entity "inventory.physical_count" as t_physical_count {
  id : uuid <<PK>>
  location_id : uuid <<NN>>
  status : varchar(30) <<NN>>
- counted_by_user_id : uuid <<NN>>
+ created_by_user_id : uuid <<NN>>
  notes : text
- started_at : timestamptz <<NN>>
+ version : bigint <<NN>>
+ started_at : timestamptz
  completed_at : timestamptz
+ completed_by_user_id : uuid
+ cancelled_at : timestamptz
+ cancelled_by_user_id : uuid
+ cancellation_reason : varchar(255)
  created_at : timestamptz <<NN>>
+ updated_at : timestamptz <<NN>>
 }
 entity "inventory.physical_count_line" as t_physical_count_line {
  id : uuid <<PK>>
@@ -154,8 +162,11 @@ entity "inventory.physical_count_line" as t_physical_count_line {
  lot_id : uuid
  asset_id : uuid
  system_quantity : numeric(18,6) <<NN>>
- counted_quantity : numeric(18,6) <<NN>>
+ counted_quantity : numeric(18,6)
  difference_quantity : numeric(18,6)
+ notes : text
+ counted_by_user_id : uuid
+ counted_at : timestamptz
 }
 entity "inventory.idempotency_record" as t_idempotency_record {
  id : uuid <<PK>>

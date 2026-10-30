@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SIGA LocationChanged v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "eventType", "schemaVersion", "aggregateType", "aggregateId", "occurredAt", "correlationId", "producer", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "const": "LocationChanged" },
+    "schemaVersion": { "const": 1 },
+    "aggregateType": { "const": "Location" },
+    "aggregateId": { "type": "string", "format": "uuid" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "producer": { "const": "inventory-service" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["changeType", "actorUserId", "before", "after"],
+      "properties": {
+        "changeType": { "enum": ["CREATED", "UPDATED", "DEACTIVATED", "REACTIVATED"] },
+        "actorUserId": { "type": "string", "format": "uuid" },
+        "before": {
+          "oneOf": [
+            { "$ref": "#/$defs/locationSnapshot" },
+            { "type": "null" }
+          ]
+        },
+        "after": { "$ref": "#/$defs/locationSnapshot" }
+      }
+    }
+  },
+  "$defs": {
+    "locationSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "name", "locationType", "parentId", "active", "version"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "code": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "locationType": { "enum": ["ALMACEN", "PATIO", "ZONA", "PASILLO", "RACK", "NIVEL", "POSICION", "TALLER", "RECEPCION", "CUARENTENA", "DESPACHO"] },
+        "parentId": {
+          "oneOf": [
+            { "type": "string", "format": "uuid" },
+            { "type": "null" }
+          ]
+        },
+        "active": { "type": "boolean" },
+        "version": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

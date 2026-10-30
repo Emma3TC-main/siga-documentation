@@ -128,8 +128,8 @@ Controlar quién puede acceder a SIGA y qué operaciones puede ejecutar.
 ## 5.2 Flujo
 
 1. El administrador registra al usuario.
-2. Se establecen sus datos, estado y ámbito de operación.
-3. Se asigna un rol.
+2. Se establecen username, email, contraseña inicial transitoria y estado MFA inicial.
+3. Se asigna el conjunto de roles autorizado.
 4. El usuario utiliza sus credenciales.
 5. El sistema autentica la identidad.
 6. El backend determina las operaciones permitidas.
@@ -138,6 +138,13 @@ Controlar quién puede acceder a SIGA y qué operaciones puede ejecutar.
 
 ## 5.3 Reglas
 
+- Las capacidades vigentes son `GET /users`, `GET /users/{id}`, `POST /users`, `PATCH /users/{id}` y `PUT /users/{id}/roles`; la base común es `/api/v1`.
+- El modelo administrativo MVP expone exclusivamente `id`, `username`, `email`, `active`, `mfaEnabled` y `roleIds`; no administra nombres, teléfono, ámbito, fechas, último acceso ni estado de bloqueo.
+- La lista usa paginación del servidor (página 0, tamaño 20, máximo 100) y orden `username ASC`; no hay búsqueda ni filtros globales en esta versión.
+- La creación requiere `USER_MANAGE`; si incluye roles también requiere `ROLE_MANAGE`. La contraseña inicial es transitoria en el cliente: no se registra, conserva ni vuelve a mostrar.
+- La edición Web se limita a email y activación/desactivación. Username es inmutable y no existen borrado, reset de contraseña ni desbloqueo administrativo.
+- `mfaEnabled` se muestra solo como información. Activar, desactivar, resetear, recuperar o enrolar MFA de otra persona queda fuera del MVP Web.
+- Toda mutación administrativa exige MFA con `auth_time` de máximo 300 segundos. Las consultas no; refresh no renueva `auth_time` y no existe endpoint step-up separado.
 - Desactivar un usuario no elimina su historial.
 - Los movimientos ya registrados deben conservar la identidad histórica del registrador.
 - Los privilegios sensibles deben otorgarse bajo el principio de mínimo acceso necesario.
@@ -149,11 +156,17 @@ Controlar quién puede acceder a SIGA y qué operaciones puede ejecutar.
 
 Los permisos se administran por rol y pueden complementarse con reglas condicionales para movimientos sensibles.
 
+El contrato MVP usa `GET/POST /api/v1/roles`, `PUT /api/v1/roles/{id}/permissions` y `GET /api/v1/permissions`. Permite listar y crear roles, listar el catálogo read-only de permisos y reemplazar completamente los roles de un usuario o los permisos de un rol. No permite editar genéricamente, renombrar, activar/desactivar ni eliminar roles, ni crear/editar/eliminar permisos. El rol `ADMIN` permanece protegido por backend. Estos reemplazos no exponen versión optimista: se acepta last-write-wins, con carga del estado vigente, confirmación explícita del conjunto completo y recarga posterior; dos editores concurrentes aún pueden sobrescribirse.
+
+La autorización se decide por claims `USER_MANAGE` y `ROLE_MANAGE`, nunca por el nombre del rol. Las mutaciones requieren el step-up administrativo de 300 segundos; las lecturas no. Identity publica `UserCreated`, `UserUpdated`, `UserDisabled` y `RoleChanged` mediante Outbox durable, pero su proyección en el Audit central queda diferida como `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER`.
+
 | Función | Administrador | Supervisor de Almacén | Encargado de Almacén | Usuario Autorizado | Usuario Móvil |
 |---|---:|---:|---:|---:|---:|
 | Acceso al sistema | Sí | Sí | Sí | Sí | Sí |
 | Gestionar usuarios/roles | Sí | No | No | No | No |
 | Gestionar catálogos maestros | Sí | Según permiso | Consulta | Consulta | Consulta |
+| Gestionar ubicaciones | Sí | Sí | No | No | No |
+| Gestionar lotes y activos | Sí | Sí | Sí | No | No |
 | Consultar inventario | Sí | Sí | Sí | Sí | Sí |
 | Registrar entradas | Sí | Sí | Sí | Según permiso | Según permiso |
 | Registrar salidas | Sí | Sí | Sí | Según permiso | Según permiso |
@@ -163,8 +176,14 @@ Los permisos se administran por rol y pueden complementarse con reglas condicion
 | Reportes | Sí | Sí | Sí | Consulta según rol | No por defecto |
 | Historial | Sí | Sí | Sí | Consulta según rol | Consulta limitada |
 | Auditoría | Sí | Según permiso | No | No | No |
+| Consultar evidencia | Sí | Sí | Sí | Según permiso | Según permiso |
+| Adjuntar evidencia | Sí | Sí | Sí | Según permiso | Según permiso |
 
 > La matriz es una línea base. La autorización definitiva se parametriza según la organización, manteniendo consistencia con los requisitos funcionales y criterios de aceptación.
+
+En el baseline local versionado, `ADMIN`, `ENCARGADO` y `SUPERVISOR` disponen de `EVIDENCE_READ`, `EVIDENCE_WRITE` e `INVENTORY_COUNT`. `ENCARGADO` dispone además de `INVENTORY_READ`, `MOVEMENT_CREATE` y `CATALOG_READ`; no dispone de `MOVEMENT_AUTHORIZE` ni permisos administrativos. Por ello, al enviar un movimiento queda pendiente de autorización. `SUPERVISOR` dispone además de `INVENTORY_READ`, `MOVEMENT_AUTHORIZE` y `CATALOG_READ`. La decisión debe realizarla una persona distinta del registrador (maker-checker), aun cuando el registrador también tenga capacidad de autorización.
+
+El seed canónico reserva `10000000-0000-0000-0000-000000000012` para `EVIDENCE_READ` y `10000000-0000-0000-0000-000000000013` para `EVIDENCE_WRITE`. Identity deberá incorporarlos mediante una migración versionada posterior, con asignación explícita a los tres roles y fallo ante colisión de UUID/código; este contrato no autoriza modificar la IAM operativa.
 
 ---
 
@@ -319,6 +338,16 @@ Estados base sugeridos:
 - El sistema debe permitir identificar insumos vencidos o próximos a vencer.
 - La política de despacho puede considerar vencimiento cuando corresponda.
 
+### 8.5.5 Administración de lotes y activos — capacidad planificada
+
+La administración se habilita por `TRACEABILITY_MANAGE`, asignado en el baseline a Administrador, Supervisor y Encargado; el backend decide por permiso y no por nombre de rol. Los selectores operacionales conservan `INVENTORY_READ` y muestran únicamente trazabilidad utilizable.
+
+Un lote se registra antes del movimiento con producto y, según los indicadores del producto, número de lote, colada y vencimiento. Producto, lote y colada quedan inmutables; solo pueden corregirse las fechas con la versión vigente. El usuario puede poner un lote `ACTIVE` en `QUARANTINED` o `BLOCKED` y liberarlo si no está vencido. `EXPIRED` se deriva de `expiresAt` y `DEPLETED` de que una confirmación lleve el stock agregado desde positivo hasta cero; el usuario no selecciona esos dos estados. La pantalla nunca edita cantidad ni ubicación del lote.
+
+Un activo serializado se registra con producto, código y serie globalmente únicos, inicialmente `OPERATIVO`; esos identificadores son inmutables. Marca, modelo y atributos técnicos pueden corregirse con control de versión. Las transiciones administrativas son `OPERATIVO -> EN_MANTENIMIENTO|INOPERATIVO`, `EN_MANTENIMIENTO -> OPERATIVO|FUERA_SERVICIO` e `INOPERATIVO -> EN_MANTENIMIENTO|FUERA_SERVICIO`. `EN_TRANSITO` no es control administrativo y queda reservado para un futuro flujo asíncrono de despacho/recepción. `FUERA_SERVICIO` es terminal y exige saldo positivo cero.
+
+Registrar, editar o cambiar estado no crea ni mueve existencias. La ubicación de un activo y todas las cantidades proceden exclusivamente de `stock_balance`. No existe borrado de lotes/activos ni custodia, responsable, asignación o devolución en este MVP (`ASSET_CUSTODY_DEFERRED`). Las capacidades aquí descritas están contratadas pero aún no se declaran desplegadas hasta completar sus slices de implementación y activación.
+
 ## 8.6 Edición, desactivación y reactivación de productos
 
 La edición de un producto sustituye su ficha editable completa y su conjunto completo de conversiones. La pantalla debe cargar la versión vigente y enviarla como control de concurrencia; si otra sesión modificó antes el producto, SIGA rechaza la edición y exige recargar. Una solicitud que no cambia ningún valor conserva la versión, las fechas y las conversiones y no genera un evento administrativo nuevo.
@@ -385,6 +414,14 @@ flowchart TD
     G --> H[Posición]
     D -->|Plana / maquinaria| I[Posición]
 ```
+
+### Administración de ubicaciones (contrato previsto)
+
+La administración permite crear una ubicación indicando código, nombre, tipo y padre opcional. El código identifica permanentemente a la ubicación: es único, distingue mayúsculas/minúsculas y no puede editarse después del alta. El nombre, tipo y padre sí pueden actualizarse; cualquier tipo puede ser raíz y el sistema impide que una ubicación sea su propio padre o forme un ciclo.
+
+Las ubicaciones no se eliminan. Se desactivan o reactivan conservando su historial. No se permite desactivar en cascada ni cuando el nodo o sus descendientes tienen stock positivo, descendientes activos o conteos físicos abiertos. Los saldos en cero, movimientos históricos y conteos completados/cancelados no bloquean. Para reactivar, el padre debe estar activo.
+
+La pantalla administrativa futura debe recargar el recurso ante un conflicto de versión antes de que el usuario reintente; no debe sobrescribir cambios concurrentes. Estas operaciones corresponden al permiso `LOCATION_MANAGE`; el backend decide la autorización efectiva y no el nombre visible del rol.
 
 ## 9.3 Stock multi-ubicación
 
@@ -496,12 +533,15 @@ entonces:
 
 ## 11.4 Autorización condicional
 
-No se exige autorización superior para cada salida ordinaria. Debe activarse, como mínimo, para operaciones definidas como sensibles, por ejemplo:
+No se exige autorización superior para cada salida ordinaria. En el MVP la sensibilidad se calcula por Inventory al enviar el borrador; el cliente no puede declararla. Son sensibles exactamente:
 
-- salida o traslado de maquinaria pesada;
-- repuestos de alto valor según política;
-- ajustes de inventario;
-- otras operaciones configuradas por la administración.
+- todo ajuste positivo o negativo;
+- una salida que incluya al menos un activo serializado;
+- una transferencia que incluya al menos un activo serializado.
+
+Inventory conserva una razón estable de sensibilidad. Reglas por valor monetario quedan fuera del MVP hasta que se aprueben moneda base y umbral; no se infieren de un importe ingresado por el usuario.
+
+En el MVP, `ENTRY`, `EXIT` y `TRANSFER` admiten evidencia opcional. Todo `ADJUST_POSITIVE` y `ADJUST_NEGATIVE` es sensible y exige al menos una evidencia `AVAILABLE` asociada con `ownerType=MOVEMENT` y el UUID del movimiento antes de enviarse a autorización. Evidence opera fuera de la transacción ACID de confirmación de Inventory: la precondición se comprueba en el workflow, sin transacción distribuida ni escritura cross-schema.
 
 ## 11.5 Flujo de salida con autorización y evidencia
 
@@ -608,6 +648,12 @@ Las salidas utilizan el costo promedio vigente en el momento de la operación.
 
 Este mecanismo tiene finalidad de **gestión de inventario y valorización gerencial**. SIGA no calcula impuestos ni sustituye un ERP contable.
 
+### Política D4 de costo y redondeo
+
+Los costos y cantidades se persisten con precisión 18 y escala 6. Los cálculos usan decimal exacto; no se redondean pasos intermedios. Al persistir un costo unitario, promedio o snapshot se redondea una única vez a escala 6 mediante `HALF_UP`.
+
+Una entrada exige costo unitario (cero es válido), convierte a PEN con tipo de cambio 1 para PEN o con el snapshot de tasa para otra moneda, y pondera el saldo destino. Una salida y un ajuste negativo usan y conservan el promedio bloqueado del origen. Una transferencia transporta el promedio del origen y pondera el destino existente. Un ajuste positivo con costo se trata como entrada; sin costo solo reutiliza el promedio de un saldo positivo, y se rechaza para saldo nuevo o en cero.
+
 ---
 
 # 13. Stock mínimo, vencimiento y alertas
@@ -641,6 +687,8 @@ SIGA debe permitir registrar resultados de conteos físicos o procesos de verifi
 - calcular exactitud de inventario;
 - conservar evidencia de auditoría.
 
+Cada conteo cubre una ubicación y conserva una fotografía de las existencias esperadas al iniciarse. Los movimientos que ocurran después no reescriben esa fotografía. El cierre registra las cantidades observadas y sus diferencias, pero no altera existencias ni genera ajustes automáticamente. La regularización exige que un usuario revise la diferencia y registre de forma explícita uno o más movimientos de ajuste mediante el flujo normal de autorización y evidencia. Una diferencia positiva propone ajuste positivo, una negativa propone ajuste negativo y una diferencia cero no requiere ajuste.
+
 ---
 
 # 14. Historial, trazabilidad, documentación y evidencia
@@ -669,6 +717,8 @@ El historial debe permitir reconstruir lo ocurrido. Los movimientos confirmados 
 - repuesto serializado: número de serie;
 - materiales: lote/colada cuando corresponda;
 - insumos: lote y vencimiento cuando la configuración lo requiera.
+
+Para la captura operacional, el requisito efectivo de lote se activa si el producto exige lote, colada o vencimiento; el requisito de activo se activa si exige serie. Los selectores muestran solo lotes activos no vencidos y activos en estado operativo. En entradas y ajustes positivos, el lote o activo debe haber sido creado previamente por la gestión de trazabilidad; puede existir todavía sin saldo, pues su alta y el movimiento son operaciones independientes.
 
 ### Datos de responsabilidad
 

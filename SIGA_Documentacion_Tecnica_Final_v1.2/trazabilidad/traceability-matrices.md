@@ -180,8 +180,8 @@
 | UI-W01 | Todos | POST /auth/login |
 | UI-W02 | MFA | POST /auth/mfa/verify |
 | UI-W03 | Admin/Supervisor | GET /dashboard |
-| UI-W04 | Admin | /users |
-| UI-W05 | Admin | /roles |
+| UI-W04 | `USER_MANAGE` (`ROLE_MANAGE` para asignaciones) | GET/POST `/users`; GET/PATCH `/users/{id}`; PUT `/users/{id}/roles`; página 0/20, máximo 100, `username ASC` |
+| UI-W05 | `ROLE_MANAGE` | GET/POST `/roles`; PUT `/roles/{id}/permissions`; GET `/permissions`; catálogo read-only y reemplazos completos |
 | UI-W06 | Admin | GET/POST /categories; GET devuelve arreglo directo code ASC con activos/inactivos |
 | UI-W07 | Admin/Encargado | GET/POST /products; GET/PUT /products/{id}; reemplazo completo con versión y selectores de categoría/UoM activos |
 | UI-W08 | Admin | GET/POST /units; GET devuelve arreglo directo code ASC con activos/inactivos |
@@ -194,12 +194,13 @@
 | UI-W14 | Autorizador | authorize/reject |
 | UI-W15 | Encargado/Supervisor | POST movement |
 | UI-W16 | Supervisor/Admin | POST movement |
-| UI-W17 | Supervisor/Encargado | POST counts |
+| UI-W17 | Supervisor/Encargado | API counts: lista, detalle, creación, captura, cierre y cancelación |
 | UI-W18 | Autorizado | /evidences |
 | UI-W19 | Autorizado | GET movements |
 | UI-W20 | Autorizado | /reports |
 | UI-W21 | Admin/Seguridad | /audit-events |
 | UI-W22 | Autorizado | /notifications |
+| UI-W23 (planificado) | `TRACEABILITY_MANAGE` (lectura también `INVENTORY_READ`) | Administración Remote de `/admin/lots`, `/lots/{id}`, `/admin/assets` y `/assets/{id}`; selectores operacionales permanecen separados |
 | UI-M01 | Móvil | /auth/login |
 | UI-M02 | Móvil | /auth/mfa/verify |
 | UI-M03 | Móvil | GET inventory |
@@ -208,6 +209,8 @@
 | UI-M06 | Móvil | POST evidences |
 | UI-M07 | Móvil | /notifications |
 | UI-M08 | Móvil | /auth/logout |
+
+Para UI-W04/UI-W05, las mutaciones requieren `auth_time <= 300s`; las lecturas no. No existe endpoint step-up separado, refresh no renueva `auth_time` y el rechazo conserva `403 AUTH_FORBIDDEN` (`STEP_UP_ERROR_AMBIGUITY_DEBT`). Los reemplazos de roles/permisos usan `LAST_WRITE_WINS_ACCEPTED_FOR_MVP`, sin ETag ni `expectedVersion`. Web REMOTE autoriza mediante claims, no por nombres de rol ni matrices estáticas. Identity publica eventos Outbox; el consumo central queda diferido como `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER`.
 
 ## MTR-08 ADR ↔ Área
 

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SIGA MovementConfirmed v1",
+  "type": "object",
+  "required": ["eventId", "eventType", "schemaVersion", "aggregateType", "aggregateId", "occurredAt", "correlationId", "producer", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "const": "MovementConfirmed" },
+    "schemaVersion": { "const": 1 },
+    "aggregateType": { "const": "Movement" },
+    "aggregateId": { "type": "string", "format": "uuid" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "causationId": { "type": "string", "format": "uuid" },
+    "producer": { "const": "inventory-service" },
+    "payload": {
+      "type": "object",
+      "required": ["movement", "details", "stockBalances"],
+      "properties": {
+        "movement": { "type": "object", "required": ["id", "movementCode", "movementType", "status", "registeredByUserId", "confirmedByUserId", "isSensitive", "confirmedAt", "totalBaseCostPen"], "properties": { "id": {"type":"string","format":"uuid"}, "movementCode":{"type":"string"}, "movementType":{"enum":["ENTRY","EXIT","TRANSFER","ADJUST_POSITIVE","ADJUST_NEGATIVE"]}, "status":{"const":"CONFIRMED"}, "registeredByUserId":{"type":"string","format":"uuid"}, "confirmedByUserId":{"type":"string","format":"uuid"}, "requestedByUserId":{"type":"string","format":"uuid"}, "costCenterCode":{"type":"string"}, "costCenterNameSnapshot":{"type":"string"}, "supplierId":{"type":"string","format":"uuid"}, "supplierNameSnapshot":{"type":"string"}, "supplierTaxIdSnapshot":{"type":"string"}, "referenceDocType":{"type":"string"}, "referenceDocNumber":{"type":"string"}, "reason":{"type":"string"}, "isSensitive":{"type":"boolean"}, "sensitivityReason":{"type":"string"}, "authorizedByUserId":{"type":"string","format":"uuid"}, "confirmedAt":{"type":"string","format":"date-time"}, "totalBaseCostPen":{"type":"number","minimum":0,"multipleOf":0.000001} } },
+        "details": { "type":"array", "minItems":1, "items": { "type":"object", "required":["id","lineNumber","productId","enteredQuantity","unitCode","conversionFactor","stockQuantity"], "properties": { "id":{"type":"string","format":"uuid"}, "lineNumber":{"type":"integer","minimum":1}, "productId":{"type":"string","format":"uuid"}, "enteredQuantity":{"type":"number","exclusiveMinimum":0}, "unitCode":{"type":"string"}, "conversionFactor":{"type":"number","exclusiveMinimum":0}, "stockQuantity":{"type":"number","exclusiveMinimum":0}, "originLocationId":{"type":"string","format":"uuid"}, "destinationLocationId":{"type":"string","format":"uuid"}, "lotId":{"type":"string","format":"uuid"}, "assetId":{"type":"string","format":"uuid"}, "baseUnitCostPen":{"type":"number","minimum":0,"multipleOf":0.000001}, "appliedAvgCostPen":{"type":"number","minimum":0,"multipleOf":0.000001} } } },
+        "stockBalances": { "type":"array", "minItems":1, "items": { "type":"object", "required":["stockBalanceId","productId","locationId","quantity","avgCostPen","minStock"], "properties": { "stockBalanceId":{"type":"string","format":"uuid"}, "productId":{"type":"string","format":"uuid"}, "locationId":{"type":"string","format":"uuid"}, "lotId":{"type":"string","format":"uuid"}, "assetId":{"type":"string","format":"uuid"}, "quantity":{"type":"number","minimum":0}, "avgCostPen":{"type":"number","minimum":0,"multipleOf":0.000001}, "minStock":{"type":"number","minimum":0,"multipleOf":0.000001} } } }
+      }
+    }
+  }
+}

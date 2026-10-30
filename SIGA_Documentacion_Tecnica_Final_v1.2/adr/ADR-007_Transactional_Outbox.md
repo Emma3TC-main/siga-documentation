@@ -20,8 +20,8 @@ Un publisher independiente reclama eventos `PENDING`, publica mensajes persisten
 ## Aplicación
 - IAM: eventos de usuario/rol que deban auditarse.
 - Catalog: `ProductCreated/Updated` y cambios de conversiones/proyección. Para `ProductCreated v1`, el append de `catalog.outbox_event` ocurre con producto y conversiones en la misma transacción. Para `ProductUpdated v1`, el append ocurre únicamente ante un cambio efectivo y se confirma con el incremento condicional de versión y el reemplazo completo de conversiones; un no-op no escribe Outbox. El publisher posterior entrega al menos una vez e Inventory/Reporting deduplican por `eventId` en su propia `processed_event`.
-- Inventory: `MovementConfirmed`, `StockBelowMinimum`, `InventoryAdjusted`, etc.
-- Evidence: `EvidenceUploaded`.
+- Inventory: `MovementConfirmed`, `StockBelowMinimum`, `InventoryAdjusted`, `LocationChanged v1`, `LotChanged v1` y `AssetChanged v1`. Para Location/Lot/Asset, solo una mutación efectiva confirma estado + Outbox en la misma transacción; un no-op, conflicto o rechazo no crea evento. Los routings administrativos son `inventory.location.changed.v1`, `inventory.lot.changed.v1` e `inventory.asset.changed.v1`. El publisher envía mensajes persistentes a `siga.events`, conserva el `eventId` entre reintentos y marca `PUBLISHED` únicamente tras publisher-confirm. Audit deduplica por `eventId`; estos cambios no producen notificaciones.
+- Evidence: `EvidenceUploaded v1`, exchange `siga.events`, routing key `evidence.uploaded.v1`; el sobre se valida contra `api/evidence-uploaded-v1.schema.json`. Metadata y Outbox se confirman en la misma transacción y el `eventId` estable es el UUID de `evidence.outbox_event`.
 
 ## Alternativas descartadas
 1. Publicar directamente después del commit: ventana de evento perdido.

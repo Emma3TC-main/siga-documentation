@@ -65,14 +65,14 @@ database "<size:18><&hard-drive></size>\nPostgreSQL" as DB <<RDBMS>>
 
 ' --- Lógica y Contenido Original ---
 Encargado -> INV : submit BORRADOR
-INV -> INV : evaluar sensibilidad
+INV -> INV : requiresAuthorization = sensitive\nOR !actor.has(MOVEMENT_AUTHORIZE)
 INV -> DB : state=PENDIENTE_AUTORIZACION
 INV --> Encargado : pendiente
 Autorizador -> Cliente : abrir resumen
-Cliente -> IAM : step-up TOTP
-IAM --> Cliente : stepUpContext válido
-Cliente -> INV : POST /authorize + stepUpContext
-INV -> INV : permission MOVEMENT_AUTHORIZE + MFA reciente
+Cliente -> IAM : login/challenge + step-up TOTP
+IAM --> Cliente : access JWT (sub UUID, permissions, amr=otp, auth_time)
+Cliente -> INV : POST /authorize + bearer JWT
+INV -> INV : JWT validado + MOVEMENT_AUTHORIZE + MFA <= 300 s\nsub != registeredByUserId (maker-checker)
 INV -> DB : guardar autorización + state=AUTORIZADO
 INV --> Autorizador : autorizado (sin stock effect)
 Encargado -> INV : POST /confirm

@@ -258,6 +258,7 @@ CREATE TABLE inventory.lot (
     received_at date,
     expires_at date,
     status varchar(30) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','QUARANTINED','EXPIRED','DEPLETED','BLOCKED')),
+    version bigint NOT NULL DEFAULT 0,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, product_id),
@@ -266,6 +267,8 @@ CREATE TABLE inventory.lot (
 CREATE UNIQUE INDEX uq_lot_product_number ON inventory.lot(product_id, lot_number) WHERE lot_number IS NOT NULL;
 CREATE INDEX idx_lot_product ON inventory.lot(product_id);
 CREATE INDEX idx_lot_expiry ON inventory.lot(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX idx_lot_admin_status_created ON inventory.lot(status, created_at DESC, id DESC);
+CREATE INDEX idx_lot_admin_product_created ON inventory.lot(product_id, created_at DESC, id DESC);
 
 CREATE TABLE inventory.asset (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -278,11 +281,14 @@ CREATE TABLE inventory.asset (
         'OPERATIVO','EN_MANTENIMIENTO','EN_TRANSITO','INOPERATIVO','FUERA_SERVICIO'
     )),
     technical_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+    version bigint NOT NULL DEFAULT 0,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (id, product_id)
 );
 CREATE INDEX idx_asset_product ON inventory.asset(product_id);
+CREATE INDEX idx_asset_admin_status_created ON inventory.asset(operational_status, created_at DESC, id DESC);
+CREATE INDEX idx_asset_admin_product_created ON inventory.asset(product_id, created_at DESC, id DESC);
 
 -- The current location of a serialised asset is authoritative here, never duplicated in asset.
 CREATE TABLE inventory.stock_balance (
@@ -309,6 +315,10 @@ CREATE UNIQUE INDEX uq_positive_asset_location ON inventory.stock_balance(asset_
     WHERE asset_id IS NOT NULL AND quantity > 0;
 CREATE INDEX idx_stock_product_location ON inventory.stock_balance(product_id, location_id);
 CREATE INDEX idx_stock_lot ON inventory.stock_balance(lot_id) WHERE lot_id IS NOT NULL;
+-- Planned for Inventory V6 (Location Admin); not yet applied by the current Inventory runtime.
+CREATE INDEX idx_stock_location_positive ON inventory.stock_balance(location_id) WHERE quantity > 0;
+
+CREATE SEQUENCE inventory.movement_code_sequence AS bigint START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
 
 CREATE TABLE inventory.movement (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -399,13 +409,35 @@ CREATE TABLE inventory.physical_count (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     location_id uuid NOT NULL REFERENCES inventory.location(id),
     status varchar(30) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','IN_PROGRESS','COMPLETED','CANCELLED')),
-    counted_by_user_id uuid NOT NULL,         -- external IAM reference
+    created_by_user_id uuid NOT NULL,         -- external IAM reference
     notes text,
-    started_at timestamptz NOT NULL DEFAULT now(),
+    version bigint NOT NULL DEFAULT 0 CHECK (version >= 0),
+    started_at timestamptz,
     completed_at timestamptz,
+    completed_by_user_id uuid,                -- external IAM reference
+    cancelled_at timestamptz,
+    cancelled_by_user_id uuid,                -- external IAM reference
+    cancellation_reason varchar(255),
     created_at timestamptz NOT NULL DEFAULT now(),
-    CHECK (completed_at IS NULL OR completed_at >= started_at)
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (started_at IS NULL OR started_at >= created_at),
+    CHECK (completed_at IS NULL OR (started_at IS NOT NULL AND completed_at >= started_at)),
+    CHECK (cancelled_at IS NULL OR cancelled_at >= created_at),
+    CHECK (updated_at >= created_at),
+    CHECK (
+        (status = 'DRAFT' AND started_at IS NULL AND completed_at IS NULL AND completed_by_user_id IS NULL
+            AND cancelled_at IS NULL AND cancelled_by_user_id IS NULL AND cancellation_reason IS NULL)
+        OR (status = 'IN_PROGRESS' AND started_at IS NOT NULL AND completed_at IS NULL AND completed_by_user_id IS NULL
+            AND cancelled_at IS NULL AND cancelled_by_user_id IS NULL AND cancellation_reason IS NULL)
+        OR (status = 'COMPLETED' AND completed_at IS NOT NULL AND completed_by_user_id IS NOT NULL
+            AND cancelled_at IS NULL AND cancelled_by_user_id IS NULL AND cancellation_reason IS NULL)
+        OR (status = 'CANCELLED' AND completed_at IS NULL AND completed_by_user_id IS NULL AND cancelled_at IS NOT NULL
+            AND cancelled_by_user_id IS NOT NULL AND cancellation_reason IS NOT NULL)
+    )
 );
+CREATE INDEX idx_physical_count_created ON inventory.physical_count(created_at DESC, id DESC);
+-- Planned for Inventory V6 (Location Admin); not yet applied by the current Inventory runtime.
+CREATE INDEX idx_physical_count_location_open ON inventory.physical_count(location_id) WHERE status IN ('DRAFT','IN_PROGRESS');
 
 CREATE TABLE inventory.physical_count_line (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -414,10 +446,23 @@ CREATE TABLE inventory.physical_count_line (
     lot_id uuid,
     asset_id uuid,
     system_quantity numeric(18,6) NOT NULL CHECK (system_quantity >= 0),
-    counted_quantity numeric(18,6) NOT NULL CHECK (counted_quantity >= 0),
+    counted_quantity numeric(18,6) CHECK (counted_quantity >= 0),
     difference_quantity numeric(18,6) GENERATED ALWAYS AS (counted_quantity - system_quantity) STORED,
+    notes text,
+    counted_by_user_id uuid,                  -- external IAM reference
+    counted_at timestamptz,
     FOREIGN KEY (lot_id, product_id) REFERENCES inventory.lot(id, product_id),
-    FOREIGN KEY (asset_id, product_id) REFERENCES inventory.asset(id, product_id)
+    FOREIGN KEY (asset_id, product_id) REFERENCES inventory.asset(id, product_id),
+    CHECK ((counted_quantity IS NULL AND counted_by_user_id IS NULL AND counted_at IS NULL)
+        OR (counted_quantity IS NOT NULL AND counted_by_user_id IS NOT NULL AND counted_at IS NOT NULL)),
+    CHECK (asset_id IS NULL OR system_quantity IN (0,1)),
+    CHECK (asset_id IS NULL OR counted_quantity IS NULL OR counted_quantity IN (0,1))
+);
+CREATE UNIQUE INDEX uq_count_line_dimension ON inventory.physical_count_line(
+    count_id,
+    product_id,
+    COALESCE(lot_id,'00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE(asset_id,'00000000-0000-0000-0000-000000000000'::uuid)
 );
 CREATE INDEX idx_count_line_count ON inventory.physical_count_line(count_id);
 CREATE INDEX idx_count_line_product ON inventory.physical_count_line(product_id);
@@ -466,7 +511,7 @@ CREATE INDEX idx_inventory_outbox_pending ON inventory.outbox_event(status, next
 -- ============================================================
 CREATE TABLE evidence.evidence_metadata (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_type varchar(30) NOT NULL CHECK (owner_type IN ('MOVEMENT','ASSET','ADJUSTMENT','REPORT')),
+    owner_type varchar(30) NOT NULL CHECK (owner_type = 'MOVEMENT'),
     owner_id uuid NOT NULL,                   -- external owner reference
     object_key varchar(500) NOT NULL UNIQUE,
     original_filename varchar(255) NOT NULL,
@@ -478,13 +523,33 @@ CREATE TABLE evidence.evidence_metadata (
     status varchar(30) NOT NULL DEFAULT 'RECEIVED' CHECK (status IN (
         'RECEIVED','VALIDATING','STORED','AVAILABLE','REJECTED','ARCHIVED'
     )),
-    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+        CHECK (jsonb_typeof(metadata) = 'object' AND octet_length(metadata::text) <= 16384),
     uploaded_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_evidence_owner ON evidence.evidence_metadata(owner_type, owner_id);
+CREATE INDEX idx_evidence_owner ON evidence.evidence_metadata(owner_type, owner_id, uploaded_at DESC, id DESC);
 CREATE INDEX idx_evidence_uploader ON evidence.evidence_metadata(uploaded_by_user_id, uploaded_at DESC);
 CREATE INDEX idx_evidence_sha256 ON evidence.evidence_metadata(sha256);
+
+-- Durable upload idempotency. evidence_id is reserved before object storage and remains
+-- stable across retries; COMPLETED rows must reference the response persisted for replay.
+CREATE TABLE evidence.upload_idempotency (
+    idempotency_key uuid PRIMARY KEY,
+    request_hash char(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+    evidence_id uuid NOT NULL UNIQUE,
+    status varchar(20) NOT NULL CHECK (status IN ('PROCESSING','COMPLETED','FAILED')),
+    response_status smallint,
+    response_payload jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (
+        status <> 'COMPLETED'
+        OR (response_status = 201 AND response_payload IS NOT NULL)
+    )
+);
+CREATE INDEX idx_evidence_idempotency_status_updated
+    ON evidence.upload_idempotency(status, updated_at);
 
 CREATE TABLE evidence.outbox_event (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

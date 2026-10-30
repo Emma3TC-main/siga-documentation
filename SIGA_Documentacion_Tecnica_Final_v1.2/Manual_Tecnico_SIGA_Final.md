@@ -309,11 +309,11 @@ Los actores se separan en `registered_by_user_id` y `requested_by_user_id`; el c
 
 | Estado interno | Etiqueta UI | Acción/condición | Destino | Stock |
 |---|---|---|---|---|
-| DRAFT | BORRADOR | submit sensible | PENDING_AUTHORIZATION | Sin efecto |
-| DRAFT | BORRADOR | confirm no sensible + válido | CONFIRMED | Atómico |
+| DRAFT | BORRADOR | submit sensible o actor sin `MOVEMENT_AUTHORIZE` | PENDING_AUTHORIZATION | Sin efecto |
+| DRAFT | BORRADOR | confirm por actor con `MOVEMENT_AUTHORIZE`, no sensible + válido | CONFIRMED | Atómico |
 | DRAFT | BORRADOR | cancel antes de confirmar | CANCELLED | Sin efecto |
-| PENDING_AUTHORIZATION | PENDIENTE_AUTORIZACION | authorize + permiso + step-up | AUTHORIZED | Sin efecto |
-| PENDING_AUTHORIZATION | PENDIENTE_AUTORIZACION | reject | REJECTED | Sin efecto |
+| PENDING_AUTHORIZATION | PENDIENTE_AUTORIZACION | authorize + permiso + step-up + checker distinto del maker | AUTHORIZED | Sin efecto |
+| PENDING_AUTHORIZATION | PENDIENTE_AUTORIZACION | reject + permiso + step-up + checker distinto del maker | REJECTED | Sin efecto |
 | PENDING_AUTHORIZATION | PENDIENTE_AUTORIZACION | cancel según política | CANCELLED | Sin efecto |
 | AUTHORIZED | AUTORIZADO | confirm + revalidación | CONFIRMED | Atómico |
 | AUTHORIZED | AUTORIZADO | cancel antes del commit | CANCELLED | Sin efecto |
@@ -344,7 +344,7 @@ El modelo físico canónico contiene **40 tablas**. No se crean schemas comparti
 Solo atributos técnicos/metadatos extensibles y payloads de integración. Prohibido para stock, costo, cantidad, serie, lote, ubicación, vencimiento, movimiento, autorización y relaciones críticas.
 
 ## 5.3 Identificadores
-PK UUID + códigos humanos independientes (`SKU`, `MOV-YYYY-NNNNN`, `MAQ-NNNN`). Los UUID que referencian otro bounded context se conservan como columnas sin FK cross-schema.
+PK UUID + códigos humanos independientes (`SKU`, `MOV-YYYY-NNNNN`, `MAQ-NNNN`). `movement_code` lo genera Inventory al persistir el borrador: toma una secuencia PostgreSQL global propia, usa el año UTC de creación y formatea el correlativo con ancho mínimo de cinco dígitos. La secuencia no se reinicia por año, admite huecos por rollback y nunca se calcula con `MAX()+1`; el `UNIQUE` de la tabla es la defensa final. Los UUID que referencian otro bounded context se conservan como columnas sin FK cross-schema.
 
 ## 5.4 Convenciones
 `snake_case`; UUID; `TIMESTAMPTZ` UTC; `NUMERIC(18,6)` para cantidades/costos; ISO 4217; `active` para soft delete; `version` para optimistic locking de maestros/proyecciones cuando corresponda. `FOR UPDATE` continúa en stock.
@@ -442,8 +442,12 @@ Versionado /api/v1. Recursos en sustantivos; comandos de dominio explícitos com
 | POST | /api/v1/auth/login | IAM | Login/MFA challenge |
 | POST | /api/v1/auth/mfa/verify | IAM | Verificar TOTP |
 | POST | /api/v1/auth/refresh | IAM | Rotar refresh |
-| GET/POST | /api/v1/users | IAM | Usuarios |
-| GET/POST | /api/v1/roles | IAM | Roles/permisos |
+| GET/POST | /api/v1/users | IAM | Lista paginada y alta de usuarios |
+| GET/PATCH | /api/v1/users/{id} | IAM | Detalle y actualización/desactivación |
+| PUT | /api/v1/users/{id}/roles | IAM | Reemplazo completo de roles |
+| GET/POST | /api/v1/roles | IAM | Lista y alta de roles |
+| PUT | /api/v1/roles/{id}/permissions | IAM | Reemplazo completo de permisos |
+| GET | /api/v1/permissions | IAM | Catálogo read-only por código |
 | GET/POST | /api/v1/products | CAT | Consulta paginada y alta de producto |
 | GET/PUT | /api/v1/products/{id} | CAT | Consulta o reemplazo completo con `expectedVersion`; desactivación/reactivación lógica y conversiones incluidas |
 | GET/POST | /api/v1/categories | CAT | GET: arreglo directo `{id,code,name,categoryType,active}`, activos/inactivos, `code ASC`, sin filtros/paginación |
@@ -451,7 +455,9 @@ Versionado /api/v1. Recursos en sustantivos; comandos de dominio explícitos com
 | GET/POST | /api/v1/suppliers | CAT | Proveedores |
 | GET/PUT | /api/v1/suppliers/{id} | CAT | Consulta/actualización de proveedor |
 | GET | /api/v1/inventory | INV | Stock |
-| GET/POST | /api/v1/locations | INV | Ubicaciones |
+| GET/POST | /api/v1/locations | INV | Lista filtrada o alta de ubicación |
+| GET/PUT | /api/v1/locations/{id} | INV | Detalle o reemplazo de campos editables |
+| POST | /api/v1/locations/{id}/deactivate, /reactivate | INV | Lifecycle lógico con `expectedVersion` |
 | GET | /api/v1/lots | INV | Lotes/coladas/vencimientos |
 | GET | /api/v1/assets | INV | Activos serializados |
 | POST | /api/v1/movements | INV | Borrador multi-detalle |
@@ -460,13 +466,22 @@ Versionado /api/v1. Recursos en sustantivos; comandos de dominio explícitos com
 | POST | /api/v1/movements/{id}/confirm | INV | Commit idempotente |
 | POST | /api/v1/movements/{id}/reject | INV | Rechazar |
 | POST | /api/v1/movements/{id}/cancel | INV | Cancelar antes de confirmar |
-| POST | /api/v1/counts | INV | Conteo |
+| GET/POST | /api/v1/counts[/{id}] | INV | Lista, crea y consulta conteo físico |
+| PUT/POST | /api/v1/counts/{id}/lines[/{lineId}] | INV | Captura observaciones del conteo |
+| POST | /api/v1/counts/{id}/close, /cancel | INV | Cierra o cancela sin mutar stock |
 | POST | /api/v1/evidences | EVI | Upload multipart |
+| GET | /api/v1/evidences | EVI | Lista paginada scoped por owner |
+| GET | /api/v1/evidences/{id} | EVI | Metadata autorizada |
+| GET | /api/v1/evidences/{id}/content | EVI | Stream privado autorizado |
 | GET | /api/v1/audit-events | AUD | Auditoría |
-| GET | /api/v1/notifications | AUD | Notificaciones |
-| GET | /api/v1/dashboard | REP | Dashboard |
-| POST | /api/v1/reports | REP | Reporte |
-| GET | /api/v1/analytics/exports | REP | ETL read-only |
+| GET | /api/v1/notifications | AUD | Notificaciones personales paginadas |
+| GET | /api/v1/notifications/unread-count | AUD | Conteo personal no leído |
+| POST | /api/v1/notifications/{id}/read | AUD | Marcado idempotente como leído |
+| GET | /api/v1/dashboard | REP | Dashboard operacional MVP |
+| GET | /api/v1/reports/movements | REP | Movimientos confirmados |
+| GET | /api/v1/reports/inventory-valuation | REP | Valorización actual proyectada |
+| GET | /api/v1/reports/adjustments | REP | Ajustes confirmados |
+| POST | /api/v1/admin/reconciliation | REP | Bootstrap/reconciliación de proyecciones por APIs canónicas |
 
 ## 6.6 OpenAPI
 Un YAML por microservicio, consolidado en versión 1.1. Los contratos incluyen DTOs de IAM/RBAC, conversiones múltiples, movimientos con snapshots, conteos, Evidence con owner genérico, filtros de auditoría y read models/report jobs. Frontend puede generar tipos; `generated` no se edita. Cambios de contrato actualizan tests/consumidores. Swagger UI solo DEV/QA o restringido.
@@ -480,16 +495,18 @@ Comandos críticos aceptan Idempotency-Key UUID. Se persiste request hash + resp
 # 7. Seguridad e identidad
 
 ## 7.1 JWT RS256
-MS-IAM firma con clave privada; Gateway/servicios validan pública/JWKS. Access 30 min; refresh 7 días con rotación y revocación. Usuario desactivado no renueva.
+MS-IAM firma con clave privada; Gateway/servicios validan pública/JWKS. Access 30 min; refresh 7 días con rotación y revocación. Usuario desactivado no renueva. El access JWT usa `sub` como UUID estable de `iam.user_account.id`, `permissions` como permisos efectivos, `amr` como métodos de autenticación y `auth_time` como epoch-seconds de autenticación MFA cuando exista; mantiene issuer y audiencia configurados. Los servicios validan firma, issuer, audiencia, expiración y `sub` antes de derivar el actor autenticado. El actor registrador/autorizador es server-controlled y nunca se acepta desde el body.
 
 ## 7.2 TOTP/step-up
-TOTP RFC 6238: 30s, ventana ±1, 5 intentos baseline. MFA obligatorio para privilegiados y configurable; operaciones sensibles pueden pedir step-up reciente.
+TOTP RFC 6238: 30s, ventana ±1, 5 intentos baseline. MFA obligatorio para privilegiados y configurable. Para autorizar un movimiento sensible, el access JWT es la evidencia de step-up: `amr` debe incluir `otp` y `auth_time` no puede superar 300 segundos. IAM valida TOTP; Inventory, tras la validación normal Resource Server, comprueba esos claims, `MOVEMENT_AUTHORIZE` y el estado del movimiento.
+
+Las mutaciones administrativas de Identity —crear o actualizar usuario, reemplazar sus roles, crear rol y reemplazar sus permisos— también exigen `auth_time` de máximo 300 segundos. Las lecturas administrativas no exigen step-up. No existe token ni endpoint step-up separado y el refresh conserva el instante MFA original, por lo que el administrador reautentica mediante el flujo MFA normal. El rechazo por step-up ausente/obsoleto conserva `403 AUTH_FORBIDDEN`; `STEP_UP_ERROR_AMBIGUITY_DEBT` registra que el cliente no puede distinguirlo con certeza de otro rechazo de autorización. No se persisten JWT, OTP ni secretos.
 
 ## 7.3 Argon2id
 Principal para contraseñas. Parámetros se calibran por entorno. Fallback BCrypt solo por incompatibilidad. Política baseline: mínimo 12 caracteres, passphrases permitidas, sin rotación arbitraria periódica.
 
 ## 7.4 RBAC
-Usuario N:M Rol N:M Permiso. Ejemplos INVENTORY_READ, MOVEMENT_CREATE, MOVEMENT_AUTHORIZE, INVENTORY_ADJUST, PRODUCT_WRITE, AUDIT_READ, REPORT_READ, USER_MANAGE, ROLE_MANAGE.
+Usuario N:M Rol N:M Permiso. Ejemplos INVENTORY_READ, INVENTORY_COUNT, MOVEMENT_CREATE, MOVEMENT_AUTHORIZE, INVENTORY_ADJUST, CATALOG_READ, PRODUCT_WRITE, SUPPLIER_MANAGE, AUDIT_READ, REPORT_READ, ANALYTICS_READ, USER_MANAGE, ROLE_MANAGE. `ENCARGADO` recibe el mínimo operativo `INVENTORY_READ`, `MOVEMENT_CREATE`, `CATALOG_READ` e `INVENTORY_COUNT`; no recibe autorización ni administración. `SUPERVISOR` recibe `INVENTORY_READ`, `MOVEMENT_AUTHORIZE`, `CATALOG_READ`, `REPORT_READ` e `INVENTORY_COUNT`. `ADMIN` recibe también `INVENTORY_COUNT`. `ANALYTICS_READ` es una capacidad separada reservada para integración BI y solo se asigna a `ADMIN` en el MVP; su incorporación operativa requiere una migración versionada posterior.
 
 ## 7.5 Baseline configurable
 
@@ -607,7 +624,7 @@ Login, OTP, búsqueda inventario, detalle/stock por ubicación, lotes/series bá
 Buscar activo, ver serie/código/estado/ubicación, registrar movimiento y fotografía. Cámara/galería/PDF con preview y validación. Upload inicial multipart al Evidence Service; signed URLs evolución. Límites base: imagen 10MB, PDF 20MB, configurables.
 
 ## 9.6 Notificaciones/realtime
-MVP in-app. Web: polling inicial, SSE futuro. Móvil: refresh/polling/pull-to-refresh. No WebSocket sin necesidad bidireccional.
+MVP in-app personal según `especificaciones/Notifications_MVP.md`. Cada usuario consulta únicamente sus filas mediante el UUID de `JWT sub`; no hay permiso IAM adicional. Web usa polling cada 30 segundos solo autenticado, sin solicitudes solapadas, pausado con la pestaña oculta y con refresco tras marcar leído. SSE queda como evolución. Móvil usa refresh/polling/pull-to-refresh. No se incorpora WebSocket, correo, SMS, push ni motor de reglas en este slice.
 
 # 10. Evidencias, documentos y multimedia
 
@@ -617,25 +634,30 @@ No MongoDB/GridFS ni otra NoSQL solo por archivos. La necesidad es object storag
 ## 10.2 Metadata y propiedad
 `evidence.evidence_metadata` conserva: UUID, `owner_type`, `owner_id`, `object_key`, nombre original, MIME, tamaño, SHA-256, proveedor, `uploaded_by_user_id`, estado, timestamps y metadata JSONB opcional.
 
-`owner_type` admite `MOVEMENT`, `ASSET`, `ADJUSTMENT` y `REPORT`. `owner_id` es una referencia UUID externa deliberadamente sin FK cross-schema. Así la evidencia deja de estar acoplada únicamente a Movement y cubre las rutas de almacenamiento ya definidas.
+El contrato MVP admite exclusivamente `owner_type=MOVEMENT`; `owner_id` es el UUID externo de `inventory.movement`, deliberadamente sin FK cross-schema. Un ajuste usa el UUID de su movimiento `ADJUST_POSITIVE` o `ADJUST_NEGATIVE`, no un owner type separado. `ASSET`, `ADJUSTMENT` y `REPORT` quedan reservados para una versión posterior que defina una interfaz canónica de existencia y autorización por ID.
+
+Toda operación exige el permiso grueso `EVIDENCE_READ` o `EVIDENCE_WRITE` y obtiene el actor exclusivamente de `sub` UUID del JWT RS256 validado conforme a ADR-011. El baseline configurable usa issuer `siga-identity`, audience `siga-api` y claim `permissions`; se validan además firma, expiración y `sub`. `uploadedByUserId` nunca se acepta desde el cliente. `OwnerAccessPolicyPort` reenvía el bearer al `GET /api/v1/movements/{ownerId}` de Inventory antes de crear o leer el objeto. Un owner inexistente o no visible se responde `404` para no revelar su existencia; falta del permiso Evidence produce `403`; owner type distinto de `MOVEMENT`, `400`; timeout/5xx de Inventory, `503`. No se usa SQL ni FK cross-schema.
+
+`metadata` es un objeto JSON opcional de máximo 16 KiB UTF-8 serializados y profundidad 5. Admite objetos, arreglos y primitivas JSON; cada objeto admite hasta 50 propiedades, cada arreglo hasta 50 elementos, las claves hasta 64 caracteres y los strings hasta 1024. Se rechaza raíz no objeto, binario/base64, claves o valores destinados a secretos, tokens o credenciales. Los logs registran solo resultado, tamaños e identificadores seguros, nunca el JSON completo.
 
 ## 10.3 Organización
 
 ```text
 siga-evidences/
 ├── movements/<year>/<movement-id>/<evidence-id>.<ext>
-├── assets/<asset-id>/...
-├── adjustments/<movement-id>/...
-└── reports/<year>/<report-id>.<ext>
 ```
 
 Object keys se generan internamente. GCS aplica IAM/versioning/lifecycle/cifrado administrado. MinIO puede versionar en desarrollo.
 
 ## 10.4 Reportes persistentes vs temporales
-Reportes normales pueden ser temporales. Reportes oficiales/auditables se guardan con filtros, usuario, fecha, hash y metadata. La relación con Evidence usa `owner_type=REPORT`. SEQ-13 documenta el flujo.
+Reportes normales pueden ser temporales. La asociación de reportes oficiales con Evidence queda diferida hasta versionar el owner type `REPORT` y su interfaz de autorización. SEQ-13 describe el flujo objetivo, no una capacidad del MVP Evidence.
 
 ## 10.5 Consistencia de evidencia
-El alta de metadata y `evidence.outbox_event` se confirma localmente; `EvidenceUploaded` se publica por Outbox. Si la escritura del objeto o la persistencia de metadata falla, el caso debe compensar/limpiar el objeto según política para evitar huérfanos. SHA-256, MIME y magic bytes son controles de integridad, no sustitutos de autorización.
+El owner se valida antes de tocar almacenamiento. El alta de metadata y `evidence.outbox_event` se confirma en una misma transacción local; `EvidenceUploaded` se publica por Outbox. Si storage falla no se escribe metadata. Si el objeto se almacena y luego falla el commit, se intenta borrar exactamente el object key recién generado. Si esa compensación falla, se emite log estructurado y métrica con `correlationId`, `evidenceId` y object key interno como incidente de huérfano, sin exponerlos al cliente. El reconciliador periódico queda diferido y no bloquea el MVP. SHA-256, MIME y magic bytes son controles de integridad, no sustitutos de autorización.
+
+El upload exige `Idempotency-Key` UUID. `evidence.upload_idempotency` reserva de forma durable un `evidence_id` antes del almacenamiento. El fingerprint SHA-256 cubre owner, metadata canónica, nombre sanitizado, MIME validado y hash del archivo; el hash del archivo aislado no es clave idempotente. Misma key y mismo request completado devuelve la respuesta `201` original; misma key con request distinto o aún `PROCESSING` devuelve `409`. Un retry de `FAILED` reutiliza el mismo `evidence_id` y object key y no crea otro objeto, metadata ni Outbox.
+
+La descarga canónica es `GET /api/v1/evidences/{id}/content`: Evidence transmite desde storage privado con MIME validado y `Content-Disposition: attachment` usando nombre sanitizado. No expone `object_key`, URL pública, URL permanente ni URL firmada. Metadata y contenido requieren autorización vigente del owner.
 
 
 # 11. Eventos, mensajería y notificaciones
@@ -647,16 +669,22 @@ Elegido sobre Kafka porque SIGA requiere mensajería confiable de volumen modera
 
 | Evento | Productor | Consumidor | Uso |
 |---|---|---|---|
+| UserCreated/Updated/Disabled | IAM | Diferido | Publicación durable; consumidor Audit central pendiente |
+| RoleChanged | IAM | Diferido | Publicación durable; consumidor Audit central pendiente |
 | ProductCreated/Updated | CAT | INV, REP | Proyección local |
 | SupplierCreated/Updated/Disabled | CAT | INV, REP | Proyección local de proveedor |
 | StockBelowMinimum | INV | AUD, REP | Alerta/dashboard |
 | StockDepleted | INV | AUD, REP | Alerta crítica |
-| MovementConfirmed | INV | AUD, REP | Auditoría/analytics |
+| MovementConfirmed | INV | AUD (auditoría y notificaciones), REP | Auditoría/notificación personal/analytics |
 | SensitiveMovementConfirmed | INV | AUD | Control reforzado |
 | InventoryAdjusted | INV | AUD, REP | Control ajuste |
+| LotChanged | INV | AUD | Alta, metadata y lifecycle de lote |
+| AssetChanged | INV | AUD | Registro, metadata y lifecycle de activo |
 | EvidenceUploaded | EVI | AUD | Trazabilidad documental |
 | ProductExpiringSoon | INV | AUD, REP | Alerta programada |
 | IntegrationFailed | Cualquiera | AUD | Visibilidad operativa |
+
+Identity publica sus eventos existentes mediante `iam.outbox_event` y RabbitMQ, pero el servicio Audit vigente no los consume. `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER` identifica este gap diferido; hasta cerrarlo no se afirma que las mutaciones IAM aparezcan en `audit.audit_event`.
 
 ## 11.3 Envelope
 
@@ -676,6 +704,8 @@ Elegido sobre Kafka porque SIGA requiere mensajería confiable de volumen modera
 
 `SupplierCreated`, `SupplierUpdated` y `SupplierDisabled` v1 se definen en `api/supplier-*-v1.schema.json`. Comparten el sobre: `eventId` es el UUID estable de Outbox, `aggregateType=Supplier`, `aggregateId` identifica al proveedor, `schemaVersion=1`, `producer=catalog-service`, `correlationId` conserva el request y `causationId` es opcional. El payload `{supplier:{id,code,taxId,businessName,active,version}}` corresponde exactamente a `inventory.supplier_ref`; `version` alimenta `source_version`.
 
+`EvidenceUploaded v1` se define en `api/evidence-uploaded-v1.schema.json` y se publica en exchange `siga.events` con routing key `evidence.uploaded.v1`. Usa `eventId=evidence.outbox_event.id`, `eventType=EvidenceUploaded`, `schemaVersion=1`, `aggregateType=Evidence`, `aggregateId=evidence.id`, `producer=evidence-service` y conserva `correlationId`; `causationId` es opcional. El payload contiene solo `id`, `ownerType`, `ownerId`, `uploadedByUserId`, `contentType`, `sizeBytes`, `sha256`, `status=AVAILABLE` y `uploadedAt`. No transporta binario, metadata arbitraria, filename, object key, URL, JWT, OTP ni credenciales.
+
 ## 11.4 Transactional Outbox por productor
 El patrón aplica a todo servicio que produce eventos relevantes: `iam.outbox_event`, `catalog.outbox_event`, `inventory.outbox_event` y `evidence.outbox_event`. Cada tabla pertenece al mismo schema que el agregado modificado. No existe Outbox compartido.
 
@@ -686,6 +716,12 @@ RabbitMQ puede redeliver. Cada consumidor registra `event_id` procesado en **su 
 
 ## 11.6 Confiabilidad
 Durable exchange/queue, persistent messages, publisher confirms, ACK manual, retry/backoff y DLQ. DLQ>0 genera alerta. Para Product v1, el exchange topic durable es `siga.events`: `ProductCreated` usa `catalog.product.created.v1` y `ProductUpdated` usa `catalog.product.updated.v1`. Supplier v1 usa el mismo exchange con `catalog.supplier.created.v1`, `catalog.supplier.updated.v1` y `catalog.supplier.disabled.v1`; su payload transporta `{supplier:{id,code,taxId,businessName,active,version}}`. Esta topología entrega al menos una vez, no exactamente una vez.
+
+`MovementConfirmed v1` se define en `api/movement-confirmed-v1.schema.json`. Inventory lo emite exclusivamente para cada confirmación D4 de ENTRY, EXIT, TRANSFER y ambos ajustes; los eventos especializados permanecen fuera de alcance hasta tener contrato versionado. Usa `siga.events` con routing `inventory.movement.confirmed.v1`, `aggregateType=Movement`, `schemaVersion=1` y el UUID de `inventory.outbox_event` como `eventId`. El payload contiene el movimiento confirmado —incluidos registrador, confirmador, solicitante opcional, centro de costo, snapshot de proveedor, referencia, motivo, sensibilidad y autorizador cuando apliquen—, sus detalles con snapshots de costo y únicamente los `stockBalances` afectados después del commit. Reporting proyecta movimiento/saldos y Audit conserva trazabilidad; no se transportan JWT, OTP, secretos ni notas libres. Un worker programado reclama PENDING, registra el fallo sin payload y conserva retry/backoff; PUBLISHED solo se marca tras publisher confirm.
+
+`LotChanged v1` y `AssetChanged v1` se definen en `api/lot-changed-v1.schema.json` y `api/asset-changed-v1.schema.json`. Usan `siga.events`, routings `inventory.lot.changed.v1` e `inventory.asset.changed.v1`, snapshots maestros `before/after` y actor nullable para transiciones automáticas. No duplican stock, ubicación o custodia; Audit los consume idempotentemente y no existe consumidor de Notifications.
+
+Notifications reutiliza sin cambios el mismo `MovementConfirmed v1`. Una cola durable independiente `notifications.movement.confirmed.v1`, enlazada a `siga.events` por `inventory.movement.confirmed.v1`, crea una notificación informativa únicamente para `registeredByUserId`. La reclamación en `audit.processed_event` y la inserción en `audit.notification` son una transacción local; el ACK ocurre después del commit, con tres intentos configurables y DLQ `notifications.movement.confirmed.v1.dlq`. No consulta IAM ni otros schemas.
 
 ## 11.7 Correlation ID
 Gateway crea/propaga X-Correlation-ID; servicios/eventos lo conservan. Sirve para reconstruir Web→Gateway→Inventory→RabbitMQ→Audit y se incluye en Problem Details/logs.
@@ -703,15 +739,21 @@ MS-REP no modifica inventario ni consulta `inventory.stock_balance` como autorid
 - `analytics.processed_event`
 - `analytics.export_checkpoint`
 
-Los consumidores actualizan las proyecciones a partir de eventos versionados. `analytics.processed_event` evita duplicados. Una caída de Reporting no bloquea la confirmación de stock.
+La lista anterior describe el modelo objetivo. El MVP materializa `product_projection`, `inventory_projection`, `movement_projection` y `processed_event`; las otras tres tablas quedan diferidas. Los consumidores actualizan las proyecciones a partir de eventos versionados. `analytics.processed_event` evita duplicados. Una caída de Reporting no bloquea la confirmación de stock.
+
+### 12.1.1 Contrato Reporting / Analytics MVP
+
+El contrato cerrado se detalla en `especificaciones/Reporting_Analytics_MVP.md` y `api/reporting-openapi.yaml`. Reporting posee únicamente `analytics.*`; no consulta otros schemas. Consume `MovementConfirmed v1` y `ProductUpdated v1`, usa entrega al menos una vez con deduplicación transaccional por `eventId` y ofrece dashboard, movimientos, valorización y ajustes de solo lectura. `ProductCreated v1` permanece insuficiente y se cubre mediante reconciliación explícita por las APIs paginadas de Catalog e Inventory, con el bearer del operador autorizado, staging propio y reemplazo solo después de un barrido completo.
+
+Los períodos usan límites `[from,to)`, instantes UTC y fronteras de negocio `America/Lima`. Cada respuesta expone `dataUpdatedAt`. PDF/XLSX/CSV, `report_job`, exportación BI incremental, kardex completo y demás reportes especializados quedan diferidos y no forman parte del OpenAPI MVP.
 
 ## 12.2 Reportes
-Inventario consolidado, Kardex, activos, lotes/vencimientos, movimientos, reposición, consumo por centro de costo, ajustes/sensibles, valorización, ubicación y exactitud. PDF/XLSX/CSV, filtros server-side. `movement_projection` conserva el snapshot de centro de costo requerido para ese análisis.
+El MVP expone movimientos confirmados, valorización actual y ajustes mediante consultas paginadas con filtros server-side. Inventario consolidado avanzado, Kardex, activos, lotes/vencimientos, reposición, consumo por centro de costo, ubicación, exactitud y generación PDF/XLSX/CSV permanecen como catálogo objetivo diferido. `movement_projection` conserva los snapshots ya disponibles para habilitar esas evoluciones sin consultar el OLTP.
 
 ## 12.3 ETL/ELT e interoperabilidad
 UUID estables, timestamps, dimensiones Producto/Categoría/Ubicación/CentroCosto/Fecha y hechos Movimiento/Existencia/Valorización. Soft delete e historia preservan cargas incrementales. Moneda original/TC/PEN enriquecen análisis.
 
-`export_checkpoint` permite extracción incremental controlada. BI/ETL recibe acceso read-only vía API/export; no credenciales de escritura a Inventory. En una evolución se pueden añadir read replica/materialized views sin cambiar la autoridad del OLTP.
+`export_checkpoint` y la extracción incremental quedan diferidos. Cuando se implementen, BI/ETL recibirá acceso read-only vía API/export y nunca credenciales de escritura a Inventory. En una evolución se pueden añadir read replica/materialized views sin cambiar la autoridad del OLTP.
 
 ## 12.4 Tipo de cambio
 `ExchangeRatePort` desacopla proveedor. BCRP es referencia conceptual futura; MVP puede usar carga manual autorizada. En cada línea afectada se conserva `exchange_rate_source`, fecha y tasa snapshot. No se acopla dominio a endpoint externo concreto.
@@ -896,7 +938,7 @@ Login→MFA→Dashboard→módulo. Inventario: búsqueda→producto/activo→ubi
 | UI-W14 | Autorizar | /movements/:id/authorize | Autorizador | Resumen/step-up | authorize/reject |
 | UI-W15 | Transferencia | /movements/new?type=TRANSFER | Encargado/Supervisor | Origen/destino | POST movement |
 | UI-W16 | Ajuste | /adjustments | Supervisor/Admin | Motivo/evidencia | POST movement |
-| UI-W17 | Conteo | /counts | Supervisor/Encargado | Conteo/diferencia | POST counts |
+| UI-W17 | Conteo | /counts | Supervisor/Encargado | Snapshot, captura, diferencia y cierre | API counts completa |
 | UI-W18 | Evidencia | contextual | Autorizado | Upload/preview | /evidences |
 | UI-W19 | Historial | /movements | Autorizado | Paginación/filtros | GET movements |
 | UI-W20 | Reportes | /reports | Autorizado | PDF/XLSX/CSV | /reports |
@@ -1045,13 +1087,17 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-02 |
 | HU | US-02 |
 | Servicio responsable | MS-IAM |
-| Endpoint(s) | `GET/POST/PATCH /api/v1/users` |
+| Endpoint(s) | `GET /api/v1/users`; `GET/PATCH /api/v1/users/{id}`; `POST /api/v1/users`; `PUT /api/v1/users/{id}/roles` |
 | Permiso baseline | `USER_MANAGE` |
-| Eventos/asíncronos | Audit: UserCreated/UserUpdated/UserDisabled |
-| Precondiciones | Sesión privilegiada |
+| Eventos/asíncronos | Outbox IAM: UserCreated/UserUpdated/UserDisabled/RoleChanged; consumidor central Audit diferido |
+| Precondiciones | Lectura con `USER_MANAGE`; mutación con MFA y `auth_time` de máximo 300 segundos; `ROLE_MANAGE` para reemplazar/asignar roles |
 | Postcondiciones | Usuario creado/actualizado/desactivado sin perder trazabilidad |
 | Excepciones relevantes | Duplicado, validación, intento de autodesactivación no permitida por política |
 | Diagrama(s) | UML-02 |
+
+**Contrato administrativo MVP:** la lista usa página 0, tamaño 20 (`page >= 0`, `size 1..100`) y `username ASC`, sin búsqueda, filtros ni orden arbitrario. El modelo es `{id,username,email,active,mfaEnabled,roleIds}`. La creación exige contraseña inicial y admite roles; Web trata la contraseña como dato transitorio y no la persiste. Web permite editar solo email/estado, presenta `mfaEnabled` como lectura y no expone administración MFA, reset/desbloqueo ni borrado. Los roles de usuario se reemplazan como conjunto completo, sin versión optimista y con last-write-wins aceptado para el MVP.
+
+Identity confirma cada mutación y su `iam.outbox_event` local de forma transaccional. La publicación durable está vigente; el consumo de eventos IAM por el servicio central Audit no está implementado y queda registrado como `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER`.
 
 **Flujo base técnico-funcional:**
 
@@ -1078,13 +1124,15 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-03 |
 | HU | US-03 |
 | Servicio responsable | MS-IAM |
-| Endpoint(s) | `GET/POST/PATCH /api/v1/roles; /permissions` |
+| Endpoint(s) | `GET/POST /api/v1/roles`; `PUT /api/v1/roles/{id}/permissions`; `GET /api/v1/permissions` |
 | Permiso baseline | `ROLE_MANAGE` |
-| Eventos/asíncronos | Audit: RoleChanged |
-| Precondiciones | MFA privilegiado; catálogo de permisos |
+| Eventos/asíncronos | Outbox IAM: RoleChanged; consumidor central Audit diferido |
+| Precondiciones | Lecturas con `ROLE_MANAGE`; mutaciones con MFA y `auth_time` de máximo 300 segundos; catálogo de permisos read-only |
 | Postcondiciones | RBAC actualizado; sesiones nuevas reflejan permisos |
 | Excepciones relevantes | Rol protegido, permiso inexistente, conflicto de asignación |
 | Diagrama(s) | UML-02 |
+
+**Contrato RBAC MVP:** se listan y crean roles y se reemplaza el conjunto completo de permisos de un rol; no existe `PATCH /roles`, detalle individual, edición genérica, rename, activación/desactivación ni borrado. `GET /permissions` lista `{id,code,description}` por `code ASC`; el catálogo es read-only. `ADMIN` permanece protegido por backend. Los reemplazos de roles/permisos no usan ETag ni `expectedVersion`: `LAST_WRITE_WINS_ACCEPTED_FOR_MVP` exige cargar el estado vigente, confirmar el conjunto completo y recargar tras guardar, pero acepta como riesgo residual que dos administradores concurrentes puedan sobrescribirse.
 
 **Flujo base técnico-funcional:**
 
@@ -1119,7 +1167,7 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Excepciones relevantes | Código duplicado, categoría referenciada no se elimina físicamente |
 | Diagrama(s) | UML-03 |
 
-**Contrato de consulta aprobado:** `GET /api/v1/categories` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, categoryType, active}`. Incluye categorías activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión.
+**Contrato de consulta aprobado:** `GET /api/v1/categories` exige `CATALOG_READ` (o `PRODUCT_WRITE` por compatibilidad administrativa) y responde `200 application/json` con un arreglo directo de `{id, code, name, categoryType, active}`. Incluye categorías activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión.
 
 **Flujo base técnico-funcional:**
 
@@ -1422,7 +1470,7 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 
 | Campo | Especificación |
 |---|---|
-| Actor principal | Administrador/Supervisor |
+| Actor principal | Cualquier actor autenticado con el permiso efectivo requerido; no se autoriza por nombre de rol |
 | RF | RF-13,RF-20 |
 | HU | US-13 |
 | Servicio responsable | MS-REP |
@@ -1793,30 +1841,31 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-24 |
 | HU | US-24 |
 | Servicio responsable | MS-INV |
-| Endpoint(s) | `GET/POST/PATCH /api/v1/locations` |
-| Permiso baseline | `LOCATION_MANAGE` |
-| Eventos/asíncronos | Audit de cambio maestro |
-| Precondiciones | Jerarquía válida |
-| Postcondiciones | Árbol persistido sin ciclos |
-| Excepciones relevantes | parent inválido, ciclo, desactivar ubicación con stock según política |
+| Endpoint(s) | `GET /locations`, `GET /locations/{id}`, `POST /locations`, `PUT /locations/{id}`, `POST /locations/{id}/deactivate`, `POST /locations/{id}/reactivate`; no existe PATCH ni DELETE |
+| Permiso baseline | Lectura: `INVENTORY_READ` o `LOCATION_MANAGE`; mutación: `LOCATION_MANAGE` (`10000000-0000-0000-0000-000000000016`) |
+| Eventos/asíncronos | `LocationChanged v1`, routing `inventory.location.changed.v1`; Audit central idempotente por `eventId` |
+| Precondiciones | Jerarquía válida, versión esperada en PUT/lifecycle y padre activo cuando se introduce, cambia o reactiva |
+| Postcondiciones | Árbol persistido sin ciclos; mutación efectiva y Outbox en el mismo commit |
+| Excepciones relevantes | 400 `VALIDATION_ERROR`; 401 `AUTH_INVALID`; 403 `AUTH_FORBIDDEN`; 404 `LOCATION_NOT_FOUND`; 409 de datos, versión, jerarquía, descendientes, stock, uso o ubicación inactiva |
 | Diagrama(s) | UML-04 |
 
 **Flujo base técnico-funcional:**
 
-1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
-2. El request entra por API Gateway, recibe/propaga `X-Correlation-ID` y llega a **MS-INV**.
-3. El servicio valida autenticación, autorización, DTO y precondiciones de dominio; los errores se devuelven como `application/problem+json`.
-4. Si el caso modifica estado, el servicio aplica su frontera transaccional/ownership; si es consulta, aplica paginación/filtros y permisos del recurso.
-5. El resultado confirmado se persiste antes de cualquier efecto asíncrono; cuando hay evento, este se entrega de forma confiable mediante Outbox/idempotencia según corresponda.
-6. El cliente presenta estado success/error y conserva el `correlationId` para soporte cuando exista un error inesperado.
+1. La lista plana no pagina, ordena `code ASC,id ASC` y acepta solo `active=true|false|all` (defecto `true`); el detalle incluye activos e inactivos.
+2. POST crea `active=true`, `version=0`. `code` es obligatorio, máximo 80, globalmente único, sensible a mayúsculas e inmutable; nombre es obligatorio y máximo 160. PUT reemplaza solo nombre, tipo y padre.
+3. `parentId=null` define raíz y cualquier tipo canónico puede ser raíz; no existe matriz rígida de tipos. Al crear, reasignar o reactivar, el padre debe existir y estar activo. Se impiden auto-parent y ciclos profundos, también bajo escrituras concurrentes.
+4. PUT, deactivate y reactivate exigen `expectedVersion>=0`; primero verifican versión y después no-op. Una versión obsoleta devuelve `VERSION_CONFLICT`. El no-op no cambia versión, `updatedAt` ni Outbox; una mutación efectiva incrementa versión exactamente una vez.
+5. Desactivar no hace cascade y se rechaza si hay descendientes activos, stock positivo en el nodo o descendientes, o conteos `DRAFT`/`IN_PROGRESS` sobre ellos. Cantidad cero, conteos terminales y movimientos históricos no bloquean. Un nodo inactivo puede conservar un padre histórico inactivo sin cambios.
+6. Reactivar conserva ID/código y exige padre activo y jerarquía válida. Cada mutación efectiva persiste Location + `LocationChanged v1` en una transacción; no-op o rechazo no emiten evento. La publicación es al menos una vez, con `eventId` estable y estado PUBLISHED solo tras confirm del broker.
+7. Audit deduplica por `eventId` y mapea CREATED/UPDATED/DEACTIVATED/REACTIVATED a `LOCATION_CREATED`/`LOCATION_UPDATED`/`LOCATION_DEACTIVATED`/`LOCATION_REACTIVATED`, agregado `Location`, resultado `SUCCESS` y actor desde `actorUserId`. No genera notificaciones.
 
 **Criterios de prueba mínimos:**
 
-- Camino exitoso con permisos válidos.
-- Validación de entrada y permiso insuficiente.
-- Estado/recurso inexistente o conflicto de dominio cuando aplique.
-- Reintento/idempotencia/concurrencia si el caso produce efectos críticos.
-- Verificación de auditoría/evento cuando sea parte de la postcondición.
+- Raíz/hijo válidos, padre inactivo, auto-parent, ciclo profundo y carrera de reparentado.
+- Código duplicado/inmutable; actualización, no-op y versión obsoleta.
+- Desactivación limpia; bloqueo por descendiente activo, stock positivo o conteo abierto; conteo histórico permitido.
+- Reactivación y bloqueo por padre inactivo; lectura con ambos permisos y mutación solo con `LOCATION_MANAGE`.
+- Outbox solo para cambio efectivo, publisher confirm/retry y Audit idempotente.
 
 ## CUS-25 — Gestionar lotes, series y activos
 
@@ -1826,13 +1875,25 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-27,RF-28 |
 | HU | US-27,US-28 |
 | Servicio responsable | MS-INV |
-| Endpoint(s) | `GET/POST /lots; GET/POST/PATCH /assets` |
-| Permiso baseline | `TRACEABILITY_MANAGE` |
-| Eventos/asíncronos | Eventos/audit selectivos |
+| Endpoint(s) | Operacional: `GET /api/v1/lots`, `GET /api/v1/assets`; administración: `/api/v1/admin/lots`, `/api/v1/admin/assets`, `POST/GET/PUT /api/v1/lots`, `POST/GET/PUT /api/v1/assets` y acciones `/status` |
+| Permiso baseline | Selectores: `INVENTORY_READ`; lectura administrativa: `INVENTORY_READ OR TRACEABILITY_MANAGE`; mutación: `TRACEABILITY_MANAGE` |
+| Eventos/asíncronos | `LotChanged v1` y `AssetChanged v1` hacia Audit; sin Notifications |
 | Precondiciones | Producto requiere regla correspondiente |
 | Postcondiciones | Lote/activo consistente con producto; ubicación actual del activo derivada de stock_balance |
 | Excepciones relevantes | Serie duplicada, vencimiento requerido, lote inconsistente |
 | Diagrama(s) | STATE-02; UML-04 |
+
+**Selectores operacionales aprobados:** `GET /api/v1/lots` exige `productId`, admite `locationId`, `availableOnly=false`, `page=0` y `size=20` (`1..100`). Devuelve únicamente lotes `ACTIVE` sin vencimiento o con `expiresAt` mayor o igual a la fecha UTC vigente; agrega la cantidad desde `stock_balance`, la restringe por ubicación cuando se envía `locationId` y ordena por `lotNumber`, `heatNumber` e `id` con nulos al final. `GET /api/v1/assets` exige `productId` y `availability=UNASSIGNED|IN_STOCK`, admite `locationId`, `lotId` y la misma paginación; devuelve únicamente activos `OPERATIVO`, ordenados por `assetCode` e `id`. `UNASSIGNED` significa que no existe saldo positivo; `IN_STOCK`, que existe exactamente un saldo positivo con cantidad uno. Ambas consultas requieren `INVENTORY_READ` y no sustituyen las futuras operaciones administrativas protegidas por `TRACEABILITY_MANAGE`.
+
+**Regla de uso en movimientos:** el requisito efectivo de lote es `requiresLot || requiresHeatNumber || requiresExpiry`; el requisito de activo es `requiresSerial`. En `ENTRY` y `ADJUST_POSITIVE`, los IDs seleccionados deben preexistir y corresponder al producto: este incremento no crea lotes ni activos. Un lote o activo previamente creado sin saldo positivo es válido y puede aparecer como no disponible/no asignado; su creación y el movimiento que lo usa son solicitudes independientes, por lo que no forman una única transacción distribuida.
+
+**Administración de lotes aprobada:** `GET /api/v1/admin/lots` lista todos los estados con filtros opcionales `productId`, `status`, `expired`, `locationId`, `page=0` y `size=20` (`1..100`), en orden `createdAt DESC, id DESC`; `GET /api/v1/lots/{id}` obtiene detalle. `POST /api/v1/lots` crea sin stock en versión 0 y valida los flags locales del producto. `PUT /api/v1/lots/{id}` reemplaza únicamente fechas y exige `expectedVersion`; producto, lote y colada son inmutables. `POST /api/v1/lots/{id}/status` admite las transiciones manuales entre `ACTIVE`, `QUARANTINED` y `BLOCKED`, y `DEPLETED -> ACTIVE` solo con agregado cero y fecha válida. `EXPIRED` se deriva exclusivamente de `expiresAt < current UTC date`; `DEPLETED`, de una confirmación que lleva el agregado positivo a cero. Ninguno se selecciona manualmente. No existe DELETE.
+
+**Administración de activos aprobada:** `GET /api/v1/admin/assets` lista todos los estados con filtros opcionales de producto, estado, disponibilidad, ubicación y lote; `GET /api/v1/assets/{id}` deriva ubicación/lote desde el único saldo positivo. `POST /api/v1/assets` registra en versión 0 y `OPERATIVO`, sin stock; `PUT /api/v1/assets/{id}` reemplaza marca, modelo y snapshot técnico. Producto, código y serie son inmutables. La acción `/status` aplica STATE-02 excepto que `EN_TRANSITO` queda reservado al futuro flujo asíncrono y nunca es target administrativo; `FUERA_SERVICIO` es terminal y exige saldo positivo cero. No hay DELETE, ubicación editable ni custodia (`ASSET_CUSTODY_DEFERRED`).
+
+**Concurrencia y eventos:** toda mutación administrativa comprueba `expectedVersion` antes del no-op, incrementa una vez por cambio efectivo y devuelve `409 VERSION_CONFLICT` si está obsoleta. No-op, rechazo y conflicto no escriben Outbox. El cambio efectivo y `LotChanged v1` (`inventory.lot.changed.v1`) o `AssetChanged v1` (`inventory.asset.changed.v1`) se confirman en la misma transacción. Audit deduplica por `eventId` y mapea a `LOT_CREATED|LOT_UPDATED|LOT_STATUS_CHANGED` o `ASSET_REGISTERED|ASSET_UPDATED|ASSET_STATUS_CHANGED`; no se generan notificaciones.
+
+**Deuda Web planificada:** `ApiLotRepository` y `ApiAssetRepository` continúan siendo adaptadores de selectores operacionales; no representan todavía la administración contratada. La futura integración Remote debe usar un puerto/adaptador administrativo explícito, sin fallback Demo. La pantalla de Maquinaria tampoco puede derivar activos físicos desde Product ni usar `DemoResponsibleRepository` como autoridad: custodia, responsable, asignación y devolución permanecen diferidos.
 
 **Flujo base técnico-funcional:**
 
@@ -1859,12 +1920,12 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-30 |
 | HU | US-30 |
 | Servicio responsable | MS-EVI |
-| Endpoint(s) | `POST /api/v1/evidences; GET /evidences/{id}` |
+| Endpoint(s) | `POST /api/v1/evidences; GET /evidences?ownerType&ownerId&page&size; GET /evidences/{id}; GET /evidences/{id}/content` |
 | Permiso baseline | `EVIDENCE_WRITE/EVIDENCE_READ` |
 | Eventos/asíncronos | EvidenceUploaded |
-| Precondiciones | ownerType MOVEMENT/ASSET/ADJUSTMENT/REPORT y ownerId autorizados |
+| Precondiciones | `ownerType=MOVEMENT`; ownerId existente y visible en Inventory; JWT `sub` UUID y permiso Evidence; Idempotency-Key UUID en upload |
 | Postcondiciones | Objeto privado + metadata/hash + ownerType/ownerId + EvidenceUploaded vía Outbox |
-| Excepciones relevantes | MIME/magic/size inválido, storage falla; no metadata huérfana |
+| Excepciones relevantes | owner inválido/inaccesible, key conflictiva, MIME/magic/size/metadata inválido, owner service o storage no disponible; compensación de objeto tras rollback |
 | Diagrama(s) | SEQ-10; BPMN-06 |
 
 **Flujo base técnico-funcional:**
@@ -1884,7 +1945,7 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 - Reintento/idempotencia/concurrencia si el caso produce efectos críticos.
 - Verificación de auditoría/evento cuando sea parte de la postcondición.
 
-## CUS-27 — Autorizar movimiento sensible
+## CUS-27 — Autorizar movimiento pendiente
 
 | Campo | Especificación |
 |---|---|
@@ -1895,9 +1956,9 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Endpoint(s) | `POST /movements/{id}/authorize|reject` |
 | Permiso baseline | `MOVEMENT_AUTHORIZE` |
 | Eventos/asíncronos | SensitiveMovementConfirmed solo al confirmar |
-| Precondiciones | Movimiento PENDIENTE_AUTORIZACION; step-up válido |
+| Precondiciones | Movimiento PENDIENTE_AUTORIZACION; `MOVEMENT_AUTHORIZE`; step-up válido; autorizador distinto de `registered_by_user_id` |
 | Postcondiciones | Estado AUTORIZADO o RECHAZADO sin efecto stock |
-| Excepciones relevantes | MFA no reciente, permiso insuficiente, estado inválido |
+| Excepciones relevantes | MFA no reciente, permiso insuficiente, violación maker-checker, estado inválido |
 | Diagrama(s) | SEQ-07; BPMN-05 |
 
 **Flujo base técnico-funcional:**
@@ -1925,12 +1986,12 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-33 |
 | HU | US-33 |
 | Servicio responsable | MS-INV |
-| Endpoint(s) | `POST /api/v1/counts` |
+| Endpoint(s) | `POST/GET /api/v1/counts`; detalle, captura de líneas, cierre y cancelación bajo `/api/v1/counts/{id}` |
 | Permiso baseline | `INVENTORY_COUNT` |
-| Eventos/asíncronos | InventoryAdjusted si deriva ajuste |
-| Precondiciones | Ubicación/alcance del conteo definidos |
-| Postcondiciones | Diferencias almacenadas; ajuste posterior separado |
-| Excepciones relevantes | Conteo duplicado/estado cerrado/dato inválido |
+| Eventos/asíncronos | Ninguno propio; ajuste confirmado conserva `MovementConfirmed v1` |
+| Precondiciones | Ubicación válida; snapshot por ubicación; actor desde JWT `sub` |
+| Postcondiciones | Diferencias históricas almacenadas sin mutar stock; ajuste posterior explícito y separado |
+| Excepciones relevantes | Versión obsoleta/transición inválida/conteo incompleto/referencia inválida |
 | Diagrama(s) | BPMN-04 |
 
 **Flujo base técnico-funcional:**
@@ -1941,6 +2002,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 4. Si el caso modifica estado, el servicio aplica su frontera transaccional/ownership; si es consulta, aplica paginación/filtros y permisos del recurso.
 5. El resultado confirmado se persiste antes de cualquier efecto asíncrono; cuando hay evento, este se entrega de forma confiable mediante Outbox/idempotencia según corresponda.
 6. El cliente presenta estado success/error y conserva el `correlationId` para soporte cuando exista un error inesperado.
+
+**Contrato MVP cerrado:** `DRAFT -> IN_PROGRESS -> COMPLETED` o cancelación desde estado abierto; un snapshot vacío puede cerrar directamente `DRAFT -> COMPLETED`. La creación captura todas las dimensiones de saldo de una ubicación; `countedQuantity` se completa por línea y PostgreSQL deriva `differenceQuantity`. Las mutaciones usan versión optimista. El cierre no relee ni modifica stock, no crea un ajuste y no exige autorización adicional. La regularización posterior es una acción explícita mediante el flujo existente de ajustes. `INVENTORY_COUNT` (`10000000-0000-0000-0000-000000000015`) corresponde a `ADMIN`, `ENCARGADO` y `SUPERVISOR`; los actores se derivan exclusivamente de `sub`.
 
 **Criterios de prueba mínimos:**
 
@@ -1991,30 +2054,31 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-12,RF-32 |
 | HU | US-32 |
 | Servicio responsable | MS-AUD |
-| Endpoint(s) | `GET /api/v1/notifications; PATCH read` |
+| Endpoint(s) | `GET /api/v1/notifications`; `GET /api/v1/notifications/unread-count`; `POST /api/v1/notifications/{id}/read` |
 | Permiso baseline | `AUTHENTICATED` |
-| Eventos/asíncronos | Consume StockBelowMinimum/ProductExpiringSoon/etc. |
+| Eventos/asíncronos | MVP consume `MovementConfirmed v1` (`inventory.movement.confirmed.v1`) |
 | Precondiciones | Usuario activo |
-| Postcondiciones | Notificaciones in-app leídas/no leídas; polling MVP |
-| Excepciones relevantes | Evento duplicado no duplica notificación por idempotencia |
+| Postcondiciones | El registrador recibe una notificación personal; `readAt` representa leído/no leído; polling MVP |
+| Excepciones relevantes | 400 paginación inválida; 401 sin autenticación; 404 para ID inexistente o ajeno; evento duplicado no duplica notificación |
 | Diagrama(s) | SEQ-12 |
 
 **Flujo base técnico-funcional:**
 
 1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
 2. El request entra por API Gateway, recibe/propaga `X-Correlation-ID` y llega a **MS-AUD**.
-3. El servicio valida autenticación, autorización, DTO y precondiciones de dominio; los errores se devuelven como `application/problem+json`.
-4. Si el caso modifica estado, el servicio aplica su frontera transaccional/ownership; si es consulta, aplica paginación/filtros y permisos del recurso.
-5. El resultado confirmado se persiste antes de cualquier efecto asíncrono; cuando hay evento, este se entrega de forma confiable mediante Outbox/idempotencia según corresponda.
-6. El cliente presenta estado success/error y conserva el `correlationId` para soporte cuando exista un error inesperado.
+3. El servicio valida el JWT y deriva el usuario exclusivamente de `sub`; no existe permiso IAM adicional ni usuario actuante declarado por el cliente.
+4. Lista y cuenta solo filas propias, con página 0/20, máximo 100 y orden `createdAt DESC, id DESC`.
+5. `POST /notifications/{id}/read` asigna `readAt` una sola vez; una repetición es exitosa y un ID ajeno se trata como 404.
+6. El consumidor crea una notificación para `registeredByUserId` dentro de la misma transacción que reclama `processed_event`; hace ACK después del commit.
 
 **Criterios de prueba mínimos:**
 
-- Camino exitoso con permisos válidos.
-- Validación de entrada y permiso insuficiente.
-- Estado/recurso inexistente o conflicto de dominio cuando aplique.
-- Reintento/idempotencia/concurrencia si el caso produce efectos críticos.
-- Verificación de auditoría/evento cuando sea parte de la postcondición.
+- 401 sin JWT y aislamiento estricto por `sub`.
+- Lista vacía, filtro unread, conteo, paginación y orden estable.
+- 400 para página/tamaño inválidos y 404 anti-enumeración para un ID ajeno.
+- Marcado repetido conserva el primer `readAt`.
+- Redelivery/concurrencia no duplica la notificación; rollback revierte dedup y fila.
+- Retry acotado, DLQ y ACK solo después del commit.
 
 # Anexo — Reglas reforzadas de CUS críticos
 

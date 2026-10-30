@@ -16,14 +16,23 @@ start
 |Cliente|
 :Prevalidar tamaño/formato y mostrar preview;
 |Evidence Service|
-:Autorizar acceso;
-:Validar MIME, magic bytes, tamaño y hash;
+:Validar JWT, permiso e Idempotency-Key;
+:Validar acceso a owner MOVEMENT en Inventory;
+:Validar metadata, MIME, magic bytes, tamaño y hash;
 if (Válida?) then (sí)
+ :Reservar idempotencia/evidenceId;
  |Object Storage|
  :Guardar objeto privado/versionado;
  |Evidence Service|
- :Persistir metadata/asociación;
- :Emitir EvidenceUploaded;
+ :Confirmar metadata + EvidenceUploaded Outbox;
+ if (¿Commit correcto?) then (sí)
+  :Responder 201/replay durable;
+ else (no)
+  |Object Storage|
+  :Eliminar exactamente el objeto nuevo;
+  |Evidence Service|
+  :Registrar incidente si falla compensación;
+ endif
 else (no)
  :Rechazar y devolver Problem Details;
 endif

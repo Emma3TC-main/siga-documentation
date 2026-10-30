@@ -76,17 +76,19 @@ Encargado -> Cliente : Confirmar salida
 Cliente -> Gateway : POST /movements/{id}/confirm + Idempotency-Key
 Gateway -> INV
 INV -> DB : BEGIN
-INV -> DB : validar estado/idempotency
-INV -> DB : SELECT stock_balance ... FOR UPDATE
+INV -> DB : reclamar Idempotency-Key y validar estado
+INV -> DB : SELECT stock_balance ... FOR UPDATE (orden estable)
 DB --> INV : qty disponible
 INV -> INV : revalidar qty, location, lot/asset, permissions
 INV -> DB : UPDATE stock_balance
-INV -> DB : INSERT/UPDATE costo aplicado + CONFIRMADO + outbox
+INV -> DB : snapshot costo promedio aplicado + CONFIRMADO
+INV -> DB : INSERT MovementConfirmed v1 (PENDING)
 INV -> DB : COMMIT
 INV --> Cliente : 200 movement snapshot
 
 note right of INV
 No se publica RabbitMQ dentro de la transacción.
-Outbox se publica después.
+Tras COMMIT, el publisher usa `siga.events` /
+`inventory.movement.confirmed.v1` y marca PUBLISHED solo tras confirm.
 end note
 @enduml

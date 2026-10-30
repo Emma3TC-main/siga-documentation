@@ -63,7 +63,20 @@ paths:
   /users:
     get:
       summary: List users
+      description: >-
+        Requires USER_MANAGE. Uses server pagination and fixed ordering by
+        username ASC; search, status, role and arbitrary sort filters are not
+        supported in the MVP.
       security: [ { bearerAuth: [] } ]
+      parameters:
+        - name: page
+          in: query
+          description: Zero-based page number.
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          description: Number of users per page.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
       responses:
         '200':
           description: User page
@@ -73,6 +86,10 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       summary: Create user
+      description: >-
+        Requires USER_MANAGE and MFA authentication no older than 300 seconds.
+        If roleIds is non-empty, ROLE_MANAGE is also required. Refreshing the
+        session does not renew auth_time.
       security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
@@ -101,6 +118,11 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       summary: Update or deactivate user
+      description: >-
+        Requires USER_MANAGE and MFA authentication no older than 300 seconds.
+        Refreshing the session does not renew auth_time. The Identity Admin Web
+        MVP exposes only email and active; mfaEnabled remains an API capability
+        outside that Web MVP.
       security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
@@ -119,6 +141,10 @@ paths:
       - $ref: '#/components/parameters/Id'
     put:
       summary: Replace user role assignments
+      description: >-
+        Requires ROLE_MANAGE and MFA authentication no older than 300 seconds.
+        Replaces the complete role set. No ETag, expectedVersion or optimistic
+        concurrency token is supported; last-write-wins is accepted for the MVP.
       security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
@@ -134,6 +160,7 @@ paths:
   /roles:
     get:
       summary: List roles and permissions
+      description: Requires ROLE_MANAGE. Administrative reads do not require step-up.
       security: [ { bearerAuth: [] } ]
       responses:
         '200':
@@ -145,6 +172,9 @@ paths:
                 items: { $ref: '#/components/schemas/RoleResponse' }
     post:
       summary: Create role
+      description: >-
+        Requires ROLE_MANAGE and MFA authentication no older than 300 seconds.
+        Refreshing the session does not renew auth_time.
       security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
@@ -162,6 +192,11 @@ paths:
       - $ref: '#/components/parameters/Id'
     put:
       summary: Replace role permission assignments
+      description: >-
+        Requires ROLE_MANAGE and MFA authentication no older than 300 seconds.
+        Replaces the complete permission set. No ETag, expectedVersion or
+        optimistic concurrency token is supported; last-write-wins is accepted
+        for the MVP. The protected ADMIN role remains backend-enforced.
       security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
@@ -174,6 +209,24 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RoleResponse' }
+  /permissions:
+    get:
+      summary: List the read-only permission catalog
+      description: >-
+        Requires ROLE_MANAGE. Returns permissions ordered by code ASC.
+        Administrative reads do not require step-up. The MVP does not expose
+        permission create, update, delete or individual-detail endpoints.
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          description: Read-only permission catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PermissionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -239,7 +292,12 @@ components:
       type: object
       required: [accessToken, refreshToken, expiresIn]
       properties:
-        accessToken: { type: string }
+        accessToken:
+          type: string
+          description: >-
+            JWT RS256. `sub` is the UUID of iam.user_account.id; claims include
+            permissions, amr and (after MFA) auth_time in epoch-seconds, plus issuer,
+            audience and expiry.
         refreshToken: { type: string }
         expiresIn: { type: integer, example: 1800 }
         tokenType: { type: string, example: Bearer }
@@ -300,6 +358,13 @@ components:
         permissionIds:
           type: array
           items: { type: string, format: uuid }
+    PermissionResponse:
+      type: object
+      required: [id, code, description]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        description: { type: string }
     RoleAssignment:
       type: object
       required: [roleIds]

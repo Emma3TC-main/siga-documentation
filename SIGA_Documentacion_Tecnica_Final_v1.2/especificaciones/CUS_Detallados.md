@@ -43,13 +43,19 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-02 |
 | HU | US-02 |
 | Servicio responsable | MS-IAM |
-| Endpoint(s) | `GET/POST/PATCH /api/v1/users` |
+| Endpoint(s) | `GET /api/v1/users`; `GET/PATCH /api/v1/users/{id}`; `POST /api/v1/users`; `PUT /api/v1/users/{id}/roles` |
 | Permiso baseline | `USER_MANAGE` |
-| Eventos/asíncronos | Audit: UserCreated/UserUpdated/UserDisabled |
-| Precondiciones | Sesión privilegiada |
+| Eventos/asíncronos | Outbox IAM: UserCreated/UserUpdated/UserDisabled/RoleChanged; consumidor central Audit diferido |
+| Precondiciones | Lectura con `USER_MANAGE`; mutación con MFA y `auth_time` de máximo 300 segundos; `ROLE_MANAGE` para reemplazar/asignar roles |
 | Postcondiciones | Usuario creado/actualizado/desactivado sin perder trazabilidad |
 | Excepciones relevantes | Duplicado, validación, intento de autodesactivación no permitida por política |
 | Diagrama(s) | UML-02 |
+
+**Contrato administrativo MVP:** la lista usa `page=0`, `size=20` (`page >= 0`, `size 1..100`) y orden fijo `username ASC`; no admite búsqueda, filtros por email/estado/rol ni orden arbitrario. El modelo expuesto es `{id, username, email, active, mfaEnabled, roleIds}`. POST exige además una contraseña inicial transitoria de mínimo 12 caracteres; PATCH expone en Web únicamente `email` y `active`, mantiene `username` inmutable y no incluye administración MFA, reset de contraseña, desbloqueo ni borrado. `PUT /users/{id}/roles` reemplaza el conjunto completo, sin versión optimista y con semántica last-write-wins aceptada para el MVP.
+
+Toda mutación exige reautenticación MFA normal cuando `auth_time` supera 300 segundos; refresh no renueva ese instante y no existe token ni endpoint step-up separado. Ausencia o expiración del step-up conserva `403 AUTH_FORBIDDEN`; el cliente puede hacer preflight de permiso y `auth_time`, pero ante un 403 no debe atribuir con certeza la causa. Esta ambigüedad se registra como `STEP_UP_ERROR_AMBIGUITY_DEBT`.
+
+Identity confirma el cambio y `iam.outbox_event` en una transacción y publica de forma durable. La proyección de estos eventos en `audit.audit_event` no está implementada y queda como `IAM_EVENTS_CENTRAL_AUDIT_CONSUMER`; no se afirma auditoría central vigente.
 
 **Flujo base técnico-funcional:**
 
@@ -76,13 +82,17 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | RF | RF-03 |
 | HU | US-03 |
 | Servicio responsable | MS-IAM |
-| Endpoint(s) | `GET/POST/PATCH /api/v1/roles; /permissions` |
+| Endpoint(s) | `GET/POST /api/v1/roles`; `PUT /api/v1/roles/{id}/permissions`; `GET /api/v1/permissions` |
 | Permiso baseline | `ROLE_MANAGE` |
-| Eventos/asíncronos | Audit: RoleChanged |
-| Precondiciones | MFA privilegiado; catálogo de permisos |
+| Eventos/asíncronos | Outbox IAM: RoleChanged; consumidor central Audit diferido |
+| Precondiciones | Lecturas con `ROLE_MANAGE`; mutaciones con MFA y `auth_time` de máximo 300 segundos; catálogo de permisos read-only |
 | Postcondiciones | RBAC actualizado; sesiones nuevas reflejan permisos |
 | Excepciones relevantes | Rol protegido, permiso inexistente, conflicto de asignación |
 | Diagrama(s) | UML-02 |
+
+**Contrato RBAC MVP:** los roles son dinámicos: se listan y crean, pero no existe detalle individual, edición genérica, rename, activación/desactivación ni borrado. El catálogo `GET /permissions` es read-only, devuelve `{id, code, description}` en `code ASC` y no ofrece detalle ni mutaciones. `PUT /roles/{id}/permissions` reemplaza el conjunto completo; `ADMIN` permanece protegido por backend. No existe `PATCH /roles`.
+
+Los reemplazos de roles y permisos no exponen ETag, `expectedVersion` ni otro token optimista. Se acepta explícitamente `LAST_WRITE_WINS_ACCEPTED_FOR_MVP`: la UI carga el estado vigente al abrir, presenta y confirma el conjunto completo, y recarga la representación autoritativa tras guardar. Dos administradores concurrentes aún pueden sobrescribirse; el control optimista queda como evolución separada.
 
 **Flujo base técnico-funcional:**
 
@@ -117,7 +127,7 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Excepciones relevantes | Código duplicado, categoría referenciada no se elimina físicamente |
 | Diagrama(s) | UML-03 |
 
-**Contrato de consulta aprobado:** `GET /api/v1/categories` exige `PRODUCT_WRITE` y responde `200 application/json` con un arreglo directo de `{id, code, name, categoryType, active}`. Incluye categorías activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión.
+**Contrato de consulta aprobado:** `GET /api/v1/categories` exige `CATALOG_READ` (o `PRODUCT_WRITE` por compatibilidad administrativa) y responde `200 application/json` con un arreglo directo de `{id, code, name, categoryType, active}`. Incluye categorías activas e inactivas, ordenadas por `code ASC`, sin paginación ni filtros en esta versión.
 
 **Flujo base técnico-funcional:**
 
@@ -184,6 +194,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 - Estado/recurso inexistente o conflicto de dominio cuando aplique.
 - Reintento/idempotencia/concurrencia si el caso produce efectos críticos.
 - Verificación de auditoría/evento cuando sea parte de la postcondición.
+
+**Permiso de consulta vigente:** `GET /api/v1/products` y `GET /api/v1/products/{id}` exigen `CATALOG_READ` o, por compatibilidad administrativa, `PRODUCT_WRITE`. Esta regla sustituye la referencia anterior a `PRODUCT_WRITE` exclusivo; las mutaciones conservan `PRODUCT_WRITE`.
 
 ## CUS-06 — Consultar inventario
 
@@ -253,6 +265,8 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 
 **Regla adicional v1.2:** para una recepción de abastecimiento externo, `supplierId` se valida contra `inventory.supplier_ref` dentro de MS-INV; no se consulta Catalog por REST durante el commit. Al confirmar se copian razón social y RUC/identificador como snapshot del movimiento.
 
+**D4 costo/evento:** ENTRY exige costo unitario y pondera el saldo destino. La confirmación inserta exclusivamente `MovementConfirmed v1` PENDING dentro del commit local; no emite eventos especializados en paralelo.
+
 ## CUS-08 — Registrar salida
 
 | Campo | Especificación |
@@ -268,6 +282,12 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Postcondiciones | Stock descontado atómicamente o rechazo sin efecto |
 | Excepciones relevantes | Stock insuficiente, sensible sin autorización, idempotencia conflictiva |
 | Diagrama(s) | SEQ-05; SEQ-06; BPMN-02 |
+
+**Regla de sensibilidad MVP:** una salida es sensible únicamente si al menos un detalle contiene un activo serializado (`assetId`). El servicio lo calcula al enviar el borrador; el cliente no puede declararlo.
+
+**Regla de aprobación por capacidad:** al enviar, `requiresAuthorization = movementIsSensitive OR !actor.hasPermission(MOVEMENT_AUTHORIZE)`. Un actor sin ese permiso queda en `PENDING_AUTHORIZATION` incluso si el movimiento no es sensible. Solo un actor con `MOVEMENT_AUTHORIZE` puede confirmar directamente desde `DRAFT`, y únicamente un movimiento no sensible.
+
+**D4 costo/evento:** EXIT usa el promedio bloqueado del origen, lo conserva como snapshot y no modifica el promedio remanente. La confirmación inserta exclusivamente `MovementConfirmed v1` PENDING dentro del commit local.
 
 **Flujo base técnico-funcional:**
 
@@ -302,6 +322,12 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Excepciones relevantes | Stock insuficiente, trazabilidad incompatible, deadlock/retry controlado |
 | Diagrama(s) | SEQ-08; BPMN-03 |
 
+**Regla de sensibilidad MVP:** una transferencia es sensible únicamente si al menos un detalle contiene un activo serializado (`assetId`). El servicio lo calcula al enviar el borrador; el cliente no puede declararlo.
+
+**Regla de aprobación por capacidad:** aplica la misma fórmula `sensitive OR !MOVEMENT_AUTHORIZE`; la ausencia del permiso lleva a `PENDING_AUTHORIZATION` y bloquea la confirmación directa desde `DRAFT`.
+
+**D4 costo/evento:** TRANSFER transporta el promedio del origen y pondera un destino existente; la confirmación inserta exclusivamente `MovementConfirmed v1` PENDING dentro del commit local.
+
 **Flujo base técnico-funcional:**
 
 1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
@@ -334,6 +360,10 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 | Postcondiciones | Ajuste +/- trazable sin editar histórico |
 | Excepciones relevantes | Resultado negativo, autorización faltante, motivo ausente |
 | Diagrama(s) | SEQ-09; BPMN-04 |
+
+**Regla de sensibilidad MVP:** `ADJUST_POSITIVE` y `ADJUST_NEGATIVE` siempre son sensibles; requieren el flujo submit/autorización antes de confirmar.
+
+**D4 costo/evento:** ajuste positivo valoriza como entrada si aporta costo, o reutiliza promedio solo con saldo positivo; ajuste negativo usa promedio bloqueado como salida. Ambos emiten exclusivamente `MovementConfirmed v1` PENDING al confirmar. `InventoryAdjusted` y `SensitiveMovementConfirmed` quedan fuera de alcance hasta contrato versionado.
 
 **Flujo base técnico-funcional:**
 
@@ -424,7 +454,7 @@ Estas especificaciones son la referencia técnica-funcional para implementación
 
 | Campo | Especificación |
 |---|---|
-| Actor principal | Administrador/Supervisor |
+| Actor principal | Actor autenticado con permiso efectivo; los nombres de rol no autorizan por sí solos |
 | RF | RF-13,RF-20 |
 | HU | US-13 |
 | Servicio responsable | MS-REP |
@@ -562,11 +592,11 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-17,RF-34 |
 | HU | US-17 |
 | Servicio responsable | MS-REP |
-| Endpoint(s) | `POST /api/v1/reports; GET /reports/{id}` |
+| Endpoint(s) | Diferido después del MVP; sin endpoint activo en `reporting-openapi.yaml` |
 | Permiso baseline | `REPORT_READ` |
 | Eventos/asíncronos | ReportGenerated opcional |
-| Precondiciones | Filtros y formato válidos |
-| Postcondiciones | PDF/XLSX/CSV temporal o persistente/auditable |
+| Precondiciones | Contrato posterior de formato, storage y ciclo de vida aprobado |
+| Postcondiciones | Diferido: PDF/XLSX/CSV temporal o persistente/auditable |
 | Excepciones relevantes | Sin datos, formato no soportado, generación falla |
 | Diagrama(s) | SEQ-13; BPMN-07 |
 
@@ -628,11 +658,11 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-19 |
 | HU | US-19 |
 | Servicio responsable | MS-REP |
-| Endpoint(s) | `GET /api/v1/analytics/exports` |
+| Endpoint(s) | Diferido después del MVP; sin endpoint activo en `reporting-openapi.yaml` |
 | Permiso baseline | `ANALYTICS_READ` |
 | Eventos/asíncronos | Ninguno |
-| Precondiciones | Credencial de integración read-only |
-| Postcondiciones | Export incremental con watermark |
+| Precondiciones | Credencial de integración read-only aún no contratada; `ANALYTICS_READ` permanece separado |
+| Postcondiciones | Diferido: export incremental con watermark |
 | Excepciones relevantes | Watermark inválido, autorización, servicio temporalmente no disponible |
 | Diagrama(s) | SEQ-14 |
 
@@ -661,7 +691,7 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-20 |
 | HU | US-20 |
 | Servicio responsable | MS-REP |
-| Endpoint(s) | `GET /api/v1/dashboard; GET /api/v1/kpis` |
+| Endpoint(s) | `GET /api/v1/dashboard` |
 | Permiso baseline | `REPORT_READ` |
 | Eventos/asíncronos | Proyecciones |
 | Precondiciones | Datos suficientes |
@@ -789,6 +819,8 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 - Reintento/idempotencia/concurrencia si el caso produce efectos críticos.
 - Verificación de auditoría/evento cuando sea parte de la postcondición.
 
+**Permiso de consulta vigente:** `GET /api/v1/units` exige `CATALOG_READ` o, por compatibilidad administrativa, `PRODUCT_WRITE`; las mutaciones conservan `PRODUCT_WRITE`.
+
 ## CUS-24 — Gestionar ubicaciones
 
 | Campo | Especificación |
@@ -797,30 +829,31 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-24 |
 | HU | US-24 |
 | Servicio responsable | MS-INV |
-| Endpoint(s) | `GET/POST/PATCH /api/v1/locations` |
-| Permiso baseline | `LOCATION_MANAGE` |
-| Eventos/asíncronos | Audit de cambio maestro |
-| Precondiciones | Jerarquía válida |
-| Postcondiciones | Árbol persistido sin ciclos |
-| Excepciones relevantes | parent inválido, ciclo, desactivar ubicación con stock según política |
+| Endpoint(s) | `GET /locations`, `GET /locations/{id}`, `POST /locations`, `PUT /locations/{id}`, `POST /locations/{id}/deactivate`, `POST /locations/{id}/reactivate`; sin PATCH/DELETE |
+| Permiso baseline | Lecturas: `INVENTORY_READ` o `LOCATION_MANAGE`; mutaciones: `LOCATION_MANAGE` (`10000000-0000-0000-0000-000000000016`) |
+| Eventos/asíncronos | `LocationChanged v1` en `inventory.location.changed.v1`; Audit idempotente, sin notificaciones |
+| Precondiciones | Datos válidos, jerarquía acíclica, padre activo para creación/reparent/reactivación y `expectedVersion` vigente en PUT/lifecycle |
+| Postcondiciones | Cambio efectivo + Outbox en un commit; versión incrementada una vez; no-op sin escrituras/evento |
+| Excepciones relevantes | `VALIDATION_ERROR`, `AUTH_INVALID`, `AUTH_FORBIDDEN`, `LOCATION_NOT_FOUND`, `DATA_CONFLICT`, `VERSION_CONFLICT`, `LOCATION_HIERARCHY_CONFLICT`, `LOCATION_HAS_ACTIVE_DESCENDANTS`, `LOCATION_HAS_STOCK`, `LOCATION_IN_USE`, `LOCATION_INACTIVE` |
 | Diagrama(s) | UML-04 |
 
 **Flujo base técnico-funcional:**
 
-1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
-2. El request entra por API Gateway, recibe/propaga `X-Correlation-ID` y llega a **MS-INV**.
-3. El servicio valida autenticación, autorización, DTO y precondiciones de dominio; los errores se devuelven como `application/problem+json`.
-4. Si el caso modifica estado, el servicio aplica su frontera transaccional/ownership; si es consulta, aplica paginación/filtros y permisos del recurso.
-5. El resultado confirmado se persiste antes de cualquier efecto asíncrono; cuando hay evento, este se entrega de forma confiable mediante Outbox/idempotencia según corresponda.
-6. El cliente presenta estado success/error y conserva el `correlationId` para soporte cuando exista un error inesperado.
+1. GET lista sin paginación por `code ASC,id ASC`; `active` es texto `true|false|all`, defecto `true`. El detalle devuelve activos e inactivos.
+2. POST recibe solo código, nombre, tipo y padre; crea activo en versión 0 y devuelve 201 con Location. Código es único global, case-sensitive e inmutable.
+3. PUT reemplaza nombre, tipo y padre, nunca código/activo/actor. PUT, deactivate y reactivate exigen `expectedVersion>=0`, comprobado antes del no-op.
+4. `parentId=null` es raíz; cualquier tipo puede ser raíz y no hay matriz rígida. Padre nuevo debe existir/estar activo; se impiden self-parent, ciclos profundos y ciclos por concurrencia. Un inactivo conserva un padre histórico inactivo si no lo cambia.
+5. Desactivar no hace cascade: bloquean descendientes activos, `quantity>0` y conteos DRAFT/IN_PROGRESS en el subárbol; no bloquean cantidad cero, conteos terminales ni movimientos históricos. Reactivar conserva ID/código y exige padre activo.
+6. Cambio efectivo incrementa una vez y confirma Location + Outbox. No-op conserva versión/timestamp y no emite. El publisher entrega al menos una vez, usa `eventId` estable y marca PUBLISHED después del confirm.
+7. Audit consume idempotentemente y mapea cada `changeType` a la acción `LOCATION_*`, actor desde `actorUserId`, agregado Location y resultado SUCCESS; una mutación rechazada no produce Audit.
 
 **Criterios de prueba mínimos:**
 
-- Camino exitoso con permisos válidos.
-- Validación de entrada y permiso insuficiente.
-- Estado/recurso inexistente o conflicto de dominio cuando aplique.
-- Reintento/idempotencia/concurrencia si el caso produce efectos críticos.
-- Verificación de auditoría/evento cuando sea parte de la postcondición.
+- Crear raíz/hijo; rechazar padre inactivo, self-parent, ciclo profundo y carrera de reparentado.
+- Código duplicado, PUT exitoso/no-op, código inmutable y versión obsoleta.
+- Desactivar hoja limpia; bloquear descendiente activo, stock positivo y conteo abierto; permitir historial terminal.
+- Reactivar y rechazar padre inactivo; comprobar permisos de lectura/mutación.
+- Outbox efectivo, ausencia de evento en no-op/rechazo y Audit idempotente.
 
 ## CUS-25 — Gestionar lotes, series y activos
 
@@ -830,13 +863,23 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-27,RF-28 |
 | HU | US-27,US-28 |
 | Servicio responsable | MS-INV |
-| Endpoint(s) | `GET/POST /lots; GET/POST/PATCH /assets` |
-| Permiso baseline | `TRACEABILITY_MANAGE` |
-| Eventos/asíncronos | Eventos/audit selectivos |
+| Endpoint(s) | Selectores `GET /api/v1/lots|assets`; listas admin `GET /api/v1/admin/lots|assets`; detalle/alta/reemplazo/estado en `/api/v1/lots|assets` |
+| Permiso baseline | Selector `INVENTORY_READ`; lectura admin `INVENTORY_READ OR TRACEABILITY_MANAGE`; mutación `TRACEABILITY_MANAGE` |
+| Eventos/asíncronos | `LotChanged v1`, `AssetChanged v1` hacia Audit; sin Notifications |
 | Precondiciones | Producto requiere regla correspondiente |
 | Postcondiciones | Lote/activo consistente con producto; la ubicación actual del activo se deriva exclusivamente de stock_balance |
 | Excepciones relevantes | Serie duplicada, vencimiento requerido, lote inconsistente |
 | Diagrama(s) | STATE-02; UML-04 |
+
+**Selectores operacionales aprobados:** `GET /api/v1/lots` exige `productId`, admite `locationId`, `availableOnly=false`, `page=0` y `size=20` (`1..100`). Devuelve únicamente lotes `ACTIVE` sin vencimiento o con `expiresAt` mayor o igual a la fecha UTC vigente; agrega la cantidad desde `stock_balance`, la restringe por ubicación cuando se envía `locationId` y ordena por `lotNumber`, `heatNumber` e `id` con nulos al final. `GET /api/v1/assets` exige `productId` y `availability=UNASSIGNED|IN_STOCK`, admite `locationId`, `lotId` y la misma paginación; devuelve únicamente activos `OPERATIVO`, ordenados por `assetCode` e `id`. `UNASSIGNED` significa que no existe saldo positivo; `IN_STOCK`, que existe exactamente un saldo positivo con cantidad uno. Ambas consultas requieren `INVENTORY_READ` y no sustituyen las futuras operaciones administrativas protegidas por `TRACEABILITY_MANAGE`.
+
+**Regla de uso en movimientos:** el requisito efectivo de lote es `requiresLot || requiresHeatNumber || requiresExpiry`; el requisito de activo es `requiresSerial`. En `ENTRY` y `ADJUST_POSITIVE`, los IDs seleccionados deben preexistir y corresponder al producto: este incremento no crea lotes ni activos. Un lote o activo previamente creado sin saldo positivo es válido y puede aparecer como no disponible/no asignado; su creación y el movimiento que lo usa son solicitudes independientes, por lo que no forman una única transacción distribuida.
+
+**Administración de Lot:** producto, lote y colada son inmutables; fechas son reemplazables mediante `PUT` con `expectedVersion`. La acción `/status` admite `ACTIVE -> QUARANTINED|BLOCKED`, `QUARANTINED <-> BLOCKED`, retorno a `ACTIVE` si no está vencido y `DEPLETED -> ACTIVE` solo con agregado cero y fecha válida. `EXPIRED` deriva de la fecha UTC y `DEPLETED` del paso de stock agregado positivo a cero; no son targets manuales. El alta no crea stock y no existe DELETE.
+
+**Administración de Asset:** producto, código y serie globalmente únicos son inmutables; marca, modelo y snapshot técnico son reemplazables con versión. Las transiciones manuales son `OPERATIVO -> EN_MANTENIMIENTO|INOPERATIVO`, `EN_MANTENIMIENTO -> OPERATIVO|FUERA_SERVICIO` e `INOPERATIVO -> EN_MANTENIMIENTO|FUERA_SERVICIO`. `EN_TRANSITO` no es control administrativo; `FUERA_SERVICIO` es terminal y exige saldo positivo cero. La ubicación se deriva de `stock_balance`; no se crea stock ni existe DELETE/custodia (`ASSET_CUSTODY_DEFERRED`).
+
+**Concurrencia, errores y auditoría:** la versión se comprueba antes del no-op; solo el cambio efectivo incrementa una vez e inserta Outbox en la misma transacción. Aplican `LOT|ASSET_NOT_FOUND`, `DATA_CONFLICT`, `VERSION_CONFLICT`, `LOT|ASSET_STATUS_CONFLICT` y `LOT|ASSET_NOT_AVAILABLE`, además de Problem Details 400/401/403. Audit consume idempotentemente las acciones `LOT_*` y `ASSET_*`; no se generan Notifications.
 
 **Flujo base técnico-funcional:**
 
@@ -863,12 +906,12 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-30 |
 | HU | US-30 |
 | Servicio responsable | MS-EVI |
-| Endpoint(s) | `POST /api/v1/evidences; GET /evidences/{id}` |
+| Endpoint(s) | `POST /api/v1/evidences; GET /evidences?ownerType&ownerId&page&size; GET /evidences/{id}; GET /evidences/{id}/content` |
 | Permiso baseline | `EVIDENCE_WRITE/EVIDENCE_READ` |
 | Eventos/asíncronos | EvidenceUploaded |
-| Precondiciones | `ownerType` MOVEMENT/ASSET/ADJUSTMENT/REPORT y `ownerId` autorizados |
+| Precondiciones | `ownerType=MOVEMENT`; ownerId existente/visible en Inventory; JWT `sub` UUID; permiso Evidence; `Idempotency-Key` UUID para upload |
 | Postcondiciones | Objeto privado + metadata/hash + ownerType/ownerId + EvidenceUploaded vía Outbox |
-| Excepciones relevantes | MIME/magic/size inválido, storage falla; no metadata huérfana |
+| Excepciones relevantes | Owner inválido/no visible, key conflictiva, MIME/magic/size/metadata inválido, Inventory o storage no disponible; compensación tras rollback |
 | Diagrama(s) | SEQ-10; BPMN-06 |
 
 **Flujo base técnico-funcional:**
@@ -888,7 +931,15 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 - Reintento/idempotencia/concurrencia si el caso produce efectos críticos.
 - Verificación de auditoría/evento cuando sea parte de la postcondición.
 
-## CUS-27 — Autorizar movimiento sensible
+**Contrato cerrado del MVP:** `EVIDENCE_READ` y `EVIDENCE_WRITE` se asignan a `ADMIN`, `ENCARGADO` y `SUPERVISOR`. Evidence valida JWT y toma el actor de `sub`; nunca acepta `uploadedByUserId` del cliente. Antes de almacenar, `OwnerAccessPolicyPort` consulta `GET /api/v1/movements/{ownerId}` con el bearer original. Falta del permiso Evidence produce `403`; owner inexistente o no visible, `404`; owner type distinto de `MOVEMENT`, `400`; timeout/5xx de Inventory, `503`. No existe SQL ni FK cross-schema. Ajustes usan el UUID del movimiento y no el owner type `ADJUSTMENT`; `ASSET`, `ADJUSTMENT` y `REPORT` quedan fuera de esta versión.
+
+**Consulta y descarga:** listar exige juntos `ownerType` y `ownerId`, `page=0`, `size=20` (`1..100`) y orden fijo `uploadedAt DESC, id DESC`; no existe listado global. La descarga transmite el objeto privado desde `GET /api/v1/evidences/{id}/content`, con MIME persistido y nombre original sanitizado como attachment; no expone object key ni URL pública/permanente.
+
+**Upload idempotente e integridad:** `Idempotency-Key` UUID es obligatorio. Misma key + mismo request completado devuelve el `201` original; request distinto o aún en proceso devuelve `409`. Un retry fallido reutiliza `evidenceId` y object key. `metadata` debe ser objeto JSON, máximo 16 KiB UTF-8 y profundidad 5, con hasta 50 propiedades por objeto, 50 elementos por arreglo, claves de 64 y strings de 1024 caracteres; no admite binario/base64 ni secretos. Si storage precede a un rollback DB, Evidence intenta eliminar exactamente el objeto recién creado; una compensación fallida se registra como incidente estructurado. El reconciliador periódico queda diferido.
+
+**Política de movimientos:** evidencia opcional para `ENTRY`, `EXIT` y `TRANSFER`. Todo `ADJUST_POSITIVE` o `ADJUST_NEGATIVE` es sensible y requiere al menos una evidencia `AVAILABLE` asociada al movimiento antes de submit/autorización. Evidence permanece fuera de la transacción ACID de confirmación; no hay transacción distribuida.
+
+## CUS-27 — Autorizar movimiento pendiente
 
 | Campo | Especificación |
 |---|---|
@@ -899,15 +950,15 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | Endpoint(s) | `POST /movements/{id}/authorize|reject` |
 | Permiso baseline | `MOVEMENT_AUTHORIZE` |
 | Eventos/asíncronos | SensitiveMovementConfirmed solo al confirmar |
-| Precondiciones | Movimiento PENDIENTE_AUTORIZACION; step-up válido |
+| Precondiciones | Movimiento PENDIENTE_AUTORIZACION; bearer JWT válido con `MOVEMENT_AUTHORIZE`, `amr` que incluya `otp` y `auth_time` de máximo 300 segundos; `sub != registeredByUserId` |
 | Postcondiciones | Estado AUTORIZADO o RECHAZADO sin efecto stock |
-| Excepciones relevantes | MFA no reciente, permiso insuficiente, estado inválido |
+| Excepciones relevantes | MFA ausente/no reciente, permiso insuficiente, subject inválido, violación maker-checker, estado inválido |
 | Diagrama(s) | SEQ-07; BPMN-05 |
 
 **Flujo base técnico-funcional:**
 
 1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
-2. El request entra por API Gateway, recibe/propaga `X-Correlation-ID` y llega a **MS-INV + MS-IAM**.
+2. El request entra por API Gateway, recibe/propaga `X-Correlation-ID` y llega a **MS-INV + MS-IAM**. Inventory deriva el autorizador de `sub` UUID del JWT validado; no acepta actor ni step-up token en el body y rechaza authorize/reject si ese `sub` coincide con `registeredByUserId`.
 3. El servicio valida autenticación, autorización, DTO y precondiciones de dominio; los errores se devuelven como `application/problem+json`.
 4. Si el caso modifica estado, el servicio aplica su frontera transaccional/ownership; si es consulta, aplica paginación/filtros y permisos del recurso.
 5. El resultado confirmado se persiste antes de cualquier efecto asíncrono; cuando hay evento, este se entrega de forma confiable mediante Outbox/idempotencia según corresponda.
@@ -929,12 +980,12 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-33 |
 | HU | US-33 |
 | Servicio responsable | MS-INV |
-| Endpoint(s) | `POST /api/v1/counts` |
+| Endpoint(s) | `POST/GET /api/v1/counts`; `GET /api/v1/counts/{id}`; captura de líneas, cierre y cancelación bajo `/api/v1/counts/{id}` |
 | Permiso baseline | `INVENTORY_COUNT` |
-| Eventos/asíncronos | InventoryAdjusted si deriva ajuste |
-| Precondiciones | Ubicación/alcance del conteo definidos |
-| Postcondiciones | Diferencias almacenadas; ajuste posterior separado |
-| Excepciones relevantes | Conteo duplicado/estado cerrado/dato inválido |
+| Eventos/asíncronos | Ninguno propio; un ajuste posterior confirmado conserva `MovementConfirmed v1` |
+| Precondiciones | Ubicación válida; snapshot por ubicación; actor derivado del JWT `sub` |
+| Postcondiciones | Conteo cerrado conserva snapshot y diferencias; no modifica stock; ajuste posterior explícito y separado |
+| Excepciones relevantes | Versión obsoleta/transición inválida/conteo incompleto/referencia inválida |
 | Diagrama(s) | BPMN-04 |
 
 **Flujo base técnico-funcional:**
@@ -945,6 +996,8 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 4. Si el caso modifica estado, el servicio aplica su frontera transaccional/ownership; si es consulta, aplica paginación/filtros y permisos del recurso.
 5. El resultado confirmado se persiste antes de cualquier efecto asíncrono; cuando hay evento, este se entrega de forma confiable mediante Outbox/idempotencia según corresponda.
 6. El cliente presenta estado success/error y conserva el `correlationId` para soporte cuando exista un error inesperado.
+
+**Contrato MVP cerrado:** el ciclo es `DRAFT -> IN_PROGRESS -> COMPLETED` o `DRAFT|IN_PROGRESS -> CANCELLED`; una ubicación cuyo snapshot no contiene líneas puede cerrar directamente `DRAFT -> COMPLETED`. La creación toma una copia corta y determinista de todas las dimensiones de saldo de una ubicación; las cantidades contadas se capturan después y la diferencia es `counted - system`. Cada mutación verifica `expectedVersion`. El cierre no relee ni modifica stock y no crea ajustes. La regularización se registra explícitamente con el flujo existente `ADJUST_POSITIVE`/`ADJUST_NEGATIVE`, incluyendo autorización, step-up y Evidence del movimiento cuando correspondan. Véase `Physical_Counts_MVP.md`.
 
 **Criterios de prueba mínimos:**
 
@@ -995,30 +1048,31 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 | RF | RF-12,RF-32 |
 | HU | US-32 |
 | Servicio responsable | MS-AUD |
-| Endpoint(s) | `GET /api/v1/notifications; PATCH read` |
+| Endpoint(s) | `GET /api/v1/notifications`; `GET /api/v1/notifications/unread-count`; `POST /api/v1/notifications/{id}/read` |
 | Permiso baseline | `AUTHENTICATED` |
-| Eventos/asíncronos | Consume StockBelowMinimum/ProductExpiringSoon/etc. |
+| Eventos/asíncronos | MVP consume `MovementConfirmed v1` (`inventory.movement.confirmed.v1`) |
 | Precondiciones | Usuario activo |
-| Postcondiciones | Notificaciones in-app leídas/no leídas; polling MVP |
-| Excepciones relevantes | Evento duplicado no duplica notificación por idempotencia |
+| Postcondiciones | El registrador recibe una notificación personal; `readAt` representa leído/no leído; polling MVP |
+| Excepciones relevantes | 400 paginación inválida; 401 sin autenticación; 404 para ID inexistente o ajeno; evento duplicado no duplica notificación |
 | Diagrama(s) | SEQ-12 |
 
 **Flujo base técnico-funcional:**
 
 1. El cliente verifica estado local de formulario/sesión, pero no asume autoridad de negocio.
 2. El request entra por API Gateway, recibe/propaga `X-Correlation-ID` y llega a **MS-AUD**.
-3. El servicio valida autenticación, autorización, DTO y precondiciones de dominio; los errores se devuelven como `application/problem+json`.
-4. Si el caso modifica estado, el servicio aplica su frontera transaccional/ownership; si es consulta, aplica paginación/filtros y permisos del recurso.
-5. El resultado confirmado se persiste antes de cualquier efecto asíncrono; cuando hay evento, este se entrega de forma confiable mediante Outbox/idempotencia según corresponda.
-6. El cliente presenta estado success/error y conserva el `correlationId` para soporte cuando exista un error inesperado.
+3. El servicio valida el JWT y deriva el usuario exclusivamente de `sub`; no existe permiso IAM adicional ni usuario actuante declarado por el cliente.
+4. Lista y cuenta solo filas propias, con página 0/20, máximo 100 y orden `createdAt DESC, id DESC`.
+5. `POST /notifications/{id}/read` asigna `readAt` una sola vez; una repetición es exitosa y un ID ajeno se trata como 404.
+6. El consumidor crea una notificación para `registeredByUserId` dentro de la misma transacción que reclama `processed_event`; hace ACK después del commit.
 
 **Criterios de prueba mínimos:**
 
-- Camino exitoso con permisos válidos.
-- Validación de entrada y permiso insuficiente.
-- Estado/recurso inexistente o conflicto de dominio cuando aplique.
-- Reintento/idempotencia/concurrencia si el caso produce efectos críticos.
-- Verificación de auditoría/evento cuando sea parte de la postcondición.
+- 401 sin JWT y aislamiento estricto por `sub`.
+- Lista vacía, filtro unread, conteo, paginación y orden estable.
+- 400 para página/tamaño inválidos y 404 anti-enumeración para un ID ajeno.
+- Marcado repetido conserva el primer `readAt`.
+- Redelivery/concurrencia no duplica la notificación; rollback revierte dedup y fila.
+- Retry acotado, DLQ y ACK solo después del commit.
 
 ## CUS-31 — Gestionar proveedores
 
@@ -1044,7 +1098,7 @@ Para Catalog, CUS-05 concreta los parámetros y límites de `GET /api/v1/product
 4. Inventory consume el evento de forma idempotente y actualiza `inventory.supplier_ref`.
 5. Un proveedor desactivado conserva su historial, pero no debe seleccionarse para una nueva recepción externa.
 
-**Contrato HTTP v1.2 aprobado:** todos los endpoints requieren `SUPPLIER_MANAGE`. POST crea activo y devuelve `201 SupplierResponse`; `active` omitido o `true` es válido y `false` produce `400 VALIDATION_ERROR`. El detalle devuelve activos e inactivos o `404 SUPPLIER_NOT_FOUND`. Autenticación/autorización usa `401 AUTH_INVALID` y `403 AUTH_FORBIDDEN`; duplicar `code` o `taxId` produce `409 DATA_CONFLICT`.
+**Contrato HTTP v1.2 aprobado:** los GET requieren `CATALOG_READ` o `SUPPLIER_MANAGE`; POST/PUT requieren `SUPPLIER_MANAGE`. POST crea activo y devuelve `201 SupplierResponse`; `active` omitido o `true` es válido y `false` produce `400 VALIDATION_ERROR`. El detalle devuelve activos e inactivos o `404 SUPPLIER_NOT_FOUND`. Autenticación/autorización usa `401 AUTH_INVALID` y `403 AUTH_FORBIDDEN`; duplicar `code` o `taxId` produce `409 DATA_CONFLICT`.
 
 La lista usa `page=0`, `size=20` y rango `1..100`; admite `code,asc|code,desc|businessName,asc|businessName,desc`, defecto `code,asc`, siempre con `id ASC` como desempate. `q` busca una subcadena literal sin distinguir mayúsculas en `code`, `taxId`, `businessName` o `tradeName`; `%` y `_` son literales. Los filtros se combinan con AND y omitir `active` incluye ambos estados. Sin coincidencias retorna `200`, `content: []` y metadatos efectivos.
 
@@ -1073,7 +1127,7 @@ Para entrada, salida, transferencia y ajuste, **stock, costo aplicado, movimient
 
 ## CUS-26 — integridad y owner de archivo
 
-El binario se almacena en MinIO/GCS; PostgreSQL conserva `owner_type`, `owner_id`, `object_key`, nombre original, MIME, tamaño, SHA-256, proveedor, usuario, fecha, estado y metadata JSONB opcional. `owner_id` es referencia UUID externa sin FK cross-schema. La aplicación debe evitar objetos huérfanos y referencias sin objeto; metadata + `evidence.outbox_event` se confirman localmente y los accesos son privados/autorizados.
+El binario se almacena en MinIO/GCS; PostgreSQL conserva `owner_type=MOVEMENT`, `owner_id`, `object_key`, nombre original, MIME, tamaño, SHA-256, proveedor, usuario, fecha, estado y metadata JSONB acotada. `owner_id` es referencia UUID externa sin FK cross-schema. `evidence.upload_idempotency` reserva un `evidence_id` estable por request y evita duplicar objeto, metadata y evento. La aplicación valida primero el owner, compensa un objeto si falla el commit y confirma metadata + `evidence.outbox_event` localmente. Los accesos son privados y revalidan owner; el contenido se transmite sin exponer key ni URL.
 
 ## CUS-19 — interoperabilidad
 

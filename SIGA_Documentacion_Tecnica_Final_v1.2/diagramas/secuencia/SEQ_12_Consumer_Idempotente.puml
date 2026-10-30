@@ -57,7 +57,7 @@ participant "<size:18><&cog></size>\nConsumer MS-INV / MS-AUD / MS-REP" as C <<M
 database "<size:18><&hard-drive></size>\ninventory | audit | analytics.processed_event" as DB <<RDBMS>>
 
 ' --- Lógica y Contenido Original ---
-RabbitMQ -> C : event(eventId=E1)
+RabbitMQ -> C : event(eventId=E1), posible MovementConfirmed v1
 C -> DB : BEGIN + SELECT processed_event(E1, consumer)
 alt ya procesado
  C -> DB : COMMIT sin efecto
@@ -77,6 +77,7 @@ C --> RabbitMQ : ACK sin duplicar efecto
 note over C, DB
 Cada consumidor escribe su propia tabla processed_event.
 Inventory la usa al consumir ProductCreated/Updated;
-Audit y Reporting la usan para sus efectos secundarios/read models.
+Audit y Reporting pueden deduplicar MovementConfirmed por eventId
+antes de sus efectos secundarios/read models.
 end note
 @enduml
